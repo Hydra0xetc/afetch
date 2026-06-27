@@ -1,17 +1,18 @@
 package org.afetch;
 
 public enum ConfigKey {
+  HOST("host"),
+  DPI("dpi"),
   RESOLUTION("resolution"),
   KERNEL("kernel"),
   BRAND("brand"),
-  VENDOR("vendor"),
   DE("DE"),
   WM("WM"),
   CPU("CPU"),
   GPU("GPU"),
   MEMORY("memory"),
   STORAGE("storage"),
-  CPU_ARCH("CPUArch"),
+  ABI("ABI"),
   BATTERY("battery"),
   APK_COUNT("apkCount"),
   PACKAGE_COUNT("packageCount"),

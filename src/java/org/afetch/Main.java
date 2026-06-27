@@ -385,14 +385,14 @@ public class Main {
     Display.Mode mode = display.getMode();
 
     return String.format(
-      "%dx%d@%.0fHz",
-      mode.getPhysicalWidth(),
+      "%dx%d @ %.0fHz",
       mode.getPhysicalHeight(),
+      mode.getPhysicalWidth(),
       mode.getRefreshRate()
     );
   }
 
-  private static String getCpuArch() {
+  private static String getSupportedAbi() {
     return String.join(", ", Build.SUPPORTED_ABIS);
   }
 
@@ -548,7 +548,7 @@ public class Main {
     return sb.toString();
   }
 
-  private static long getTotalRam() {
+  private static long getTotalMem() {
     try (BufferedReader br =
         new BufferedReader(new FileReader("/proc/meminfo"))) {
 
@@ -570,7 +570,7 @@ public class Main {
     return 0;
   }
 
-  private static long getAvailableRam() {
+  private static long getAvailableMem() {
     try (BufferedReader br
         = new BufferedReader(new FileReader("/proc/meminfo"))) {
 
@@ -590,6 +590,21 @@ public class Main {
     }
 
     return 0;
+  }
+
+  private static String getDensityName(int dpi) {
+    if (dpi <= 120) return "ldpi";
+    if (dpi <= 160) return "mdpi";
+    if (dpi <= 240) return "hdpi";
+    if (dpi <= 360) return "xhdpi";
+    if (dpi <= 560) return "xxhdpi";
+
+    return "xxxhdpi";
+  }
+  private static String getDpiInfo(Context ctx) {
+    int dpi = ctx.getResources().getDisplayMetrics().densityDpi;
+
+    return dpi + " dpi (" + getDensityName(dpi) + ")";
   }
 
   private static void prinHelp() {
@@ -612,19 +627,34 @@ options:
     );
   }
 
-  private static void printSystemInfo(Config afetchCfg) throws Exception {
+  private static String getHost() {
+    return String.format(
+      "%s %s (%s)",
+      Build.MANUFACTURER,
+      Build.MODEL,
+      Build.DEVICE
+    );
+  }
+
+  private static void printSystemInfo(Config afetchCfg)
+      throws Exception {
     Context ctx = FakeContext.getSystemContext();
 
-    // RAM
-    long totalRam = getTotalRam();
-    long freeRam = getAvailableRam();
-    long usedRam = totalRam - freeRam;
+    // Memory
+    long totalMem = getTotalMem();
+    long freeMem = getAvailableMem();
+    long usedMem = totalMem - freeMem;
+    int memPercent = (int) (usedMem * 100 / totalMem);
 
     // Storage
-    StatFs stat = new StatFs(Environment.getDataDirectory().getPath());
+    StatFs stat = new StatFs(
+        Environment.getDataDirectory().getPath()
+    );
 
     long totalStorage = stat.getTotalBytes();
     long freeStorage = stat.getAvailableBytes();
+    long usedStorage = totalStorage - freeStorage;
+    int storagePercent = (int) (usedStorage * 100 / totalStorage);
 
     System.out.println(
       GREEN_BOLD + "╭───────────────────────────────╮" + RESET
@@ -638,8 +668,20 @@ options:
           )
        );
 
+    if (afetchCfg.get(ConfigKey.HOST)) {
+      row("Host", getHost());
+    }
+
+    if (afetchCfg.get(ConfigKey.BRAND)) {
+      row("Brand", Build.BRAND);
+    }
+
     if (afetchCfg.get(ConfigKey.RESOLUTION)) {
       row("Resolution", getResolution(ctx));
+    }
+
+    if (afetchCfg.get(ConfigKey.DPI)) {
+      row("Dpi", getDpiInfo(ctx));
     }
 
     if (afetchCfg.get(ConfigKey.KERNEL)) {
@@ -649,14 +691,6 @@ options:
 
     if (afetchCfg.get(ConfigKey.BATTERY)) {
       row("Battery", getBatteryInfo());
-    }
-
-    if (afetchCfg.get(ConfigKey.BRAND)) {
-      row("Brand", Build.BRAND);
-    }
-
-    if (afetchCfg.get(ConfigKey.VENDOR)) {
-      row("Vendor", Build.MANUFACTURER);
     }
 
     if (afetchCfg.get(ConfigKey.DE)) {
@@ -676,8 +710,8 @@ options:
       row("GPU", getGpuInfo());
     }
 
-    if (afetchCfg.get(ConfigKey.CPU_ARCH)) {
-      row("CPUArch", getCpuArch());
+    if (afetchCfg.get(ConfigKey.ABI)) {
+      row("ABI", getSupportedAbi());
     }
 
     if (afetchCfg.get(ConfigKey.UPTIME)) {
@@ -688,9 +722,10 @@ options:
       row(
           "Memory",
           String.format(
-            "%s / %s",
-            formatGiB(usedRam),
-            formatGiB(totalRam)
+            "%s / %s (%d%%)",
+            formatGiB(usedMem),
+            formatGiB(totalMem),
+            memPercent
           )
       );
     }
@@ -699,9 +734,10 @@ options:
       row(
           "Storage",
           String.format(
-            "%s / %s",
+            "%s / %s (%d%%)",
             formatGiB(totalStorage - freeStorage),
-            formatGiB(totalStorage)
+            formatGiB(totalStorage),
+            storagePercent
         )
       );
     }
