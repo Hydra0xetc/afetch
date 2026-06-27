@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+. ./config.sh
+
+set -e
+
+export PATH=/system/bin/
+export CLASSPATH="$OUTPUT_JAR"
+
+exec app_process -Xnoimage-dex2oat / \
+    $(echo "$PACKAGE_NAME" | tr / .).Main "$@"
