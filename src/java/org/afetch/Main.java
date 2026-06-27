@@ -49,25 +49,26 @@ import org.json.JSONObject;
 
 public class Main {
   private static String prefix = System.getenv("PREFIX");
+  private final static String PROGRAM_NAME = "afetch";
+  private final static String GREEN_BOLD = "\u001B[1;32m";
+  private final static String WHITE_BOLD = "\u001B[1;37m";
+  private final static String RESET = "\u001B[0m";
 
   private static void printLogo() {
-    final String RESET = "\u001B[0m";
-    final String BODY  = "\u001B[38;2;52;168;83m";
-    final String TEXT  = "\u001B[38;2;61;220;132m";
-
-    System.out.println(BODY + """
-   ;,                    ,;
-    ';,.--------------.,;'
-    ,'                  ',
-  ,'                      ',
- /      O           O       \\
-|                            |
-|                            |
-'----------------------------'
-""" + TEXT + """
- ******    ANDROID     ******
-""" + RESET);
+      System.out.println(GREEN_BOLD + """
+     ;,                    ,;
+      ';,.--------------.,;'
+      ,'                  ',
+    ,'                      ',
+   /      O           O       \\
+  |                            |
+  |                            |
+  '----------------------------'
+  """ + WHITE_BOLD + """
+   ******    ANDROID     ******
+  """ + RESET);
   }
+
   private static String getPackageInfo() {
     StringBuilder result = new StringBuilder();
 
@@ -591,6 +592,133 @@ public class Main {
     return 0;
   }
 
+  private static void prinHelp() {
+    System.out.printf("""
+Usage: %s [OPTIONS]
+
+options:
+  --help    print this help message
+  --cfg     create a default config
+  --no-art  print info without the logo
+\n""", PROGRAM_NAME);
+  }
+
+  private static void row(String key, Object value) {
+    System.out.printf(
+      GREEN_BOLD + "│ " +
+      WHITE_BOLD + "%-11s" +
+      RESET + " %s%n",
+      key, value
+    );
+  }
+
+  private static void printSystemInfo(Config afetchCfg) throws Exception {
+    Context ctx = FakeContext.getSystemContext();
+
+    // RAM
+    long totalRam = getTotalRam();
+    long freeRam = getAvailableRam();
+    long usedRam = totalRam - freeRam;
+
+    // Storage
+    StatFs stat = new StatFs(Environment.getDataDirectory().getPath());
+
+    long totalStorage = stat.getTotalBytes();
+    long freeStorage = stat.getAvailableBytes();
+
+    System.out.println(
+      GREEN_BOLD + "╭───────────────────────────────╮" + RESET
+    );
+
+    row("OS",
+        String.format(
+          "%s (API %d)",
+          getAndroidCodename(),
+          Build.VERSION.SDK_INT
+          )
+       );
+
+    if (afetchCfg.get(ConfigKey.RESOLUTION)) {
+      row("Resolution", getResolution(ctx));
+    }
+
+    if (afetchCfg.get(ConfigKey.KERNEL)) {
+      row("Kernel",
+          "Linux " + System.getProperty("os.version"));
+    }
+
+    if (afetchCfg.get(ConfigKey.BATTERY)) {
+      row("Battery", getBatteryInfo());
+    }
+
+    if (afetchCfg.get(ConfigKey.BRAND)) {
+      row("Brand", Build.BRAND);
+    }
+
+    if (afetchCfg.get(ConfigKey.VENDOR)) {
+      row("Vendor", Build.MANUFACTURER);
+    }
+
+    if (afetchCfg.get(ConfigKey.DE)) {
+      // Fastfetch menyebutnya DE
+      row("DE", Build.DISPLAY);
+    }
+
+    if (afetchCfg.get(ConfigKey.WM)) {
+      row("WM", getWM());
+    }
+
+    if (afetchCfg.get(ConfigKey.CPU)) {
+      row("CPU", getCpuInfo());
+    }
+
+    if (afetchCfg.get(ConfigKey.GPU)) {
+      row("GPU", getGpuInfo());
+    }
+
+    if (afetchCfg.get(ConfigKey.CPU_ARCH)) {
+      row("CPUArch", getCpuArch());
+    }
+
+    if (afetchCfg.get(ConfigKey.UPTIME)) {
+      row("Uptime", getUptime());
+    }
+
+    if (afetchCfg.get(ConfigKey.MEMORY)) {
+      row(
+          "Memory",
+          String.format(
+            "%s / %s",
+            formatGiB(usedRam),
+            formatGiB(totalRam)
+          )
+      );
+    }
+
+    if (afetchCfg.get(ConfigKey.STORAGE)) {
+      row(
+          "Storage",
+          String.format(
+            "%s / %s",
+            formatGiB(totalStorage - freeStorage),
+            formatGiB(totalStorage)
+        )
+      );
+    }
+
+    if (afetchCfg.get(ConfigKey.APK_COUNT)) {
+      row("Apk", getApkCount(ctx));
+    }
+
+    if (afetchCfg.get(ConfigKey.PACKAGE_COUNT)) {
+      row("Package", getPackageInfo());
+    }
+
+    System.out.println(
+      GREEN_BOLD + "╰───────────────────────────────╯" + RESET
+    );
+  }
+
   public static void main(String[] args) {
 
     if (Looper.getMainLooper() == null) {
@@ -599,93 +727,25 @@ public class Main {
 
     try {
 
+      boolean withArt = true;
       Config afetchCfg = new Config();
-      // afetchCfg.createDeafultConfig();
 
-      Context ctx = FakeContext.getSystemContext();
-
-      // RAM
-      long totalRam = getTotalRam();
-      long freeRam = getAvailableRam();
-      long usedRam = totalRam - freeRam;
-
-      // Storage
-      StatFs stat = new StatFs(Environment.getDataDirectory().getPath());
-
-      long totalStorage = stat.getTotalBytes();
-      long freeStorage = stat.getAvailableBytes();
-
-      printLogo();
-      System.out.println("╭───────────────────────────────╮");
-      System.out.printf("│ OS          %s (API %d)%n",
-          getAndroidCodename(), Build.VERSION.SDK_INT);
-      if (afetchCfg.get(ConfigKey.RESOLUTION)) {
-        System.out.printf("│ Resolution  %s%n", getResolution(ctx));
+      for (int i = 0; i < args.length; i++) {
+        if (args[i].equals("--cfg")) {
+          afetchCfg.createDeafultConfig();
+          System.exit(0);
+        } else if (args[i].equals("--help")) {
+          prinHelp();
+          System.exit(0);
+        } else if (args[i].equals("--no-art")) {
+          withArt = false;
+        }
       }
 
-      if (afetchCfg.get(ConfigKey.KERNEL)) {
-        System.out.printf("│ Kernel      Linux %s%n",
-            System.getProperty("os.version"));
+      if (withArt) {
+        printLogo();
       }
-
-      if (afetchCfg.get(ConfigKey.BATTERY)) {
-        System.out.printf("│ Battery     %s%n", getBatteryInfo());
-      }
-
-      if (afetchCfg.get(ConfigKey.BRAND)) {
-        System.out.printf("│ Brand       %s%n", Build.BRAND);
-      }
-
-      if (afetchCfg.get(ConfigKey.VENDOR)) {
-        System.out.printf("│ Vendor      %s%n", Build.MANUFACTURER);
-      }
-
-      if (afetchCfg.get(ConfigKey.DE)) {
-        // In fastfetch this thing called DE :V
-        System.out.printf("│ DE          %s%n", Build.DISPLAY);
-      }
-
-      if (afetchCfg.get(ConfigKey.WM)) {
-        System.out.printf("│ WM          %s%n", getWM());
-      }
-
-      if (afetchCfg.get(ConfigKey.CPU)) {
-        System.out.printf("│ CPU         %s%n", getCpuInfo());
-      }
-
-      if (afetchCfg.get(ConfigKey.GPU)) {
-        System.out.printf("│ GPU         %s%n", getGpuInfo());
-      }
-
-      if (afetchCfg.get(ConfigKey.CPU_ARCH)) {
-        System.out.printf("│ CPUArch     %s%n", getCpuArch());
-      }
-
-      if (afetchCfg.get(ConfigKey.UPTIME)) {
-        System.out.printf("│ Uptime      %s%n", getUptime());
-      }
-
-      if (afetchCfg.get(ConfigKey.MEMORY)) {
-        System.out.printf("│ Memory      %s / %s%n",
-            formatGiB(usedRam), formatGiB(totalRam));
-      }
-
-      if (afetchCfg.get(ConfigKey.STORAGE)) {
-        System.out.printf("│ Storage     %s / %s%n",
-          formatGiB(totalStorage - freeStorage),
-          formatGiB(totalStorage));
-      }
-
-      if (afetchCfg.get(ConfigKey.APK_COUNT)) {
-        System.out.printf("│ Apk         %s%n", getApkCount(ctx));
-      }
-
-      if (afetchCfg.get(ConfigKey.PACKAGE_COUNT)) {
-        System.out.printf("│ Package     %s%n", getPackageInfo());
-      }
-
-      System.out.println("╰───────────────────────────────╯");
-
+      printSystemInfo(afetchCfg);
     } catch (Exception e) {
       e.printStackTrace();
     }
