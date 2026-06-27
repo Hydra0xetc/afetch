@@ -51,7 +51,11 @@ public class Main {
   private static String prefix = System.getenv("PREFIX");
 
   private static void printLogo() {
-    System.out.println("""
+    final String RESET = "\u001B[0m";
+    final String BODY  = "\u001B[38;2;52;168;83m";
+    final String TEXT  = "\u001B[38;2;61;220;132m";
+
+    System.out.println(BODY + """
    ;,                    ,;
     ';,.--------------.,;'
     ,'                  ',
@@ -60,10 +64,10 @@ public class Main {
 |                            |
 |                            |
 '----------------------------'
+""" + TEXT + """
  ******    ANDROID     ******
- """);
+""" + RESET);
   }
-
   private static String getPackageInfo() {
     StringBuilder result = new StringBuilder();
 
@@ -151,38 +155,43 @@ public class Main {
    * ```
    * For Now Lets Use `termux-battery-status`
    */
-  private static String getBatteryInfo() {
-    try {
-      Process p = Runtime.getRuntime().exec(
-          // cheat a little bit :v, but slow :(
-          prefix + "/bin/termux-battery-status"
-      );
+    private static String getBatteryInfo() {
+      // cheat a little bit :v, but slow :(
+    String exe = prefix + "/bin/termux-battery-status";
+    if (new File(exe).exists()) {
+      try {
+        Process p = Runtime.getRuntime().exec(
+          exe
+        );
 
-      BufferedReader br = new BufferedReader(
+        BufferedReader br = new BufferedReader(
           new InputStreamReader(p.getInputStream())
-      );
+        );
 
-      StringBuilder sb = new StringBuilder();
-      String line;
+        StringBuilder sb = new StringBuilder();
+        String line;
 
-      while ((line = br.readLine()) != null) {
-        sb.append(line);
+        while ((line = br.readLine()) != null) {
+          sb.append(line);
+        }
+
+        JSONObject obj = new JSONObject(sb.toString());
+
+        return String.format(
+          "%d%% (%s, %.1f°C)",
+          obj.getInt("percentage"),
+          obj.getString("status")
+          .toLowerCase(),
+          obj.getDouble("temperature")
+        );
+
+      } catch (Exception e) {
+        e.printStackTrace();
+        return "Unknown";
       }
-
-      JSONObject obj = new JSONObject(sb.toString());
-
-      return String.format(
-        "%d%% (%s, %.1f°C)",
-        obj.getInt("percentage"),
-        obj.getString("status")
-        .toLowerCase(),
-        obj.getDouble("temperature")
-      );
-
-    } catch (Exception e) {
-      // e.printStackTrace();
-      return "Unknown";
     }
+
+    return "Unknown";
   }
 
   private static String getAndroidVersion() {
@@ -561,7 +570,8 @@ public class Main {
   }
 
   private static long getAvailableRam() {
-    try (BufferedReader br = new BufferedReader(new FileReader("/proc/meminfo"))) {
+    try (BufferedReader br
+        = new BufferedReader(new FileReader("/proc/meminfo"))) {
 
       String line;
 
@@ -590,7 +600,7 @@ public class Main {
     try {
 
       Config afetchCfg = new Config();
-      afetchCfg.createIfNotExists();
+      // afetchCfg.createDeafultConfig();
 
       Context ctx = FakeContext.getSystemContext();
 
@@ -609,24 +619,71 @@ public class Main {
       System.out.println("╭───────────────────────────────╮");
       System.out.printf("│ OS          %s (API %d)%n",
           getAndroidCodename(), Build.VERSION.SDK_INT);
-      System.out.printf("│ Resolution  %s%n", getResolution(ctx));
-      System.out.printf("│ Kernel      Linux %s%n",
-          System.getProperty("os.version"));
-      System.out.printf("│ Battery     %s%n", getBatteryInfo());
-      System.out.printf("│ Brand       %s%n", Build.BRAND);
-      System.out.printf("│ Vendor      %s%n", Build.MANUFACTURER);
-      System.out.printf("│ DE          %s%n", Build.DISPLAY); // In fastfetch this thing called DE :V
-      System.out.printf("│ WM          %s%n", getWM());
-      System.out.printf("│ CPU         %s%n", getCpuInfo());
-      System.out.printf("│ GPU         %s%n", getGpuInfo());
-      System.out.printf("│ CPUArch     %s%n", getCpuArch());
-      System.out.printf("│ Uptime      %s%n", getUptime());
-      System.out.printf("│ Memory      %s / %s%n", formatGiB(usedRam),
-          formatGiB(totalRam));
-      System.out.printf("│ Storage     %s / %s%n",
-          formatGiB(totalStorage - freeStorage), formatGiB(totalStorage));
-      System.out.printf("│ Apk         %s%n", getApkCount(ctx));
-      System.out.printf("│ Package     %s%n", getPackageInfo());
+      if (afetchCfg.get(ConfigKey.RESOLUTION)) {
+        System.out.printf("│ Resolution  %s%n", getResolution(ctx));
+      }
+
+      if (afetchCfg.get(ConfigKey.KERNEL)) {
+        System.out.printf("│ Kernel      Linux %s%n",
+            System.getProperty("os.version"));
+      }
+
+      if (afetchCfg.get(ConfigKey.BATTERY)) {
+        System.out.printf("│ Battery     %s%n", getBatteryInfo());
+      }
+
+      if (afetchCfg.get(ConfigKey.BRAND)) {
+        System.out.printf("│ Brand       %s%n", Build.BRAND);
+      }
+
+      if (afetchCfg.get(ConfigKey.VENDOR)) {
+        System.out.printf("│ Vendor      %s%n", Build.MANUFACTURER);
+      }
+
+      if (afetchCfg.get(ConfigKey.DE)) {
+        // In fastfetch this thing called DE :V
+        System.out.printf("│ DE          %s%n", Build.DISPLAY);
+      }
+
+      if (afetchCfg.get(ConfigKey.WM)) {
+        System.out.printf("│ WM          %s%n", getWM());
+      }
+
+      if (afetchCfg.get(ConfigKey.CPU)) {
+        System.out.printf("│ CPU         %s%n", getCpuInfo());
+      }
+
+      if (afetchCfg.get(ConfigKey.GPU)) {
+        System.out.printf("│ GPU         %s%n", getGpuInfo());
+      }
+
+      if (afetchCfg.get(ConfigKey.CPU_ARCH)) {
+        System.out.printf("│ CPUArch     %s%n", getCpuArch());
+      }
+
+      if (afetchCfg.get(ConfigKey.UPTIME)) {
+        System.out.printf("│ Uptime      %s%n", getUptime());
+      }
+
+      if (afetchCfg.get(ConfigKey.MEMORY)) {
+        System.out.printf("│ Memory      %s / %s%n",
+            formatGiB(usedRam), formatGiB(totalRam));
+      }
+
+      if (afetchCfg.get(ConfigKey.STORAGE)) {
+        System.out.printf("│ Storage     %s / %s%n",
+          formatGiB(totalStorage - freeStorage),
+          formatGiB(totalStorage));
+      }
+
+      if (afetchCfg.get(ConfigKey.APK_COUNT)) {
+        System.out.printf("│ Apk         %s%n", getApkCount(ctx));
+      }
+
+      if (afetchCfg.get(ConfigKey.PACKAGE_COUNT)) {
+        System.out.printf("│ Package     %s%n", getPackageInfo());
+      }
+
       System.out.println("╰───────────────────────────────╯");
 
     } catch (Exception e) {
