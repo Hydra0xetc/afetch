@@ -13,5 +13,5 @@ RULES=src/proguard-rules.pro
 R8=$HOME/opt/r8/8.8.46/r8
 BUILD=build/
 PACKAGE_NAME=org/afetch
-OUTPUT_JAR=afetch.jar
+OUTPUT_APK=afetch.apk
 OUTPUT_ODEX=oat/arm64/Storage.odex

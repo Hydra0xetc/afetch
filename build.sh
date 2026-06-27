@@ -30,7 +30,7 @@ fi
 echo "[*] $ANDROID ready"
 
 rm -rf "$BUILD"
-rm -f classes.dex "$OUTPUT_JAR"
+rm -f classes.dex "$OUTPUT_APK"
 mkdir -p "$BUILD"
 
 echo "[*] Javac compiling"
@@ -59,8 +59,8 @@ else
          --lib "$ANDROID"
 fi
 
-echo "[*] Packaging dex into jar"
-zip -j "$OUTPUT_JAR" classes.dex
+echo "[*] Packaging dex into apk"
+zip -j "$OUTPUT_APK" classes.dex
 rm -f classes.dex
 
-echo "[*] Build complete -+> $OUTPUT_JAR"
+echo "[*] Build complete -+> $OUTPUT_APK"
