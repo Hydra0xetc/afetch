@@ -1,6 +1,7 @@
 package org.afetch;
 
 public enum ConfigKey {
+  LOGO("logo"),
   HOST("host"),
   DPI("dpi"),
   RESOLUTION("resolution"),

@@ -48,11 +48,12 @@ import org.json.JSONObject;
  */
 
 public class Main {
-  private static String prefix = System.getenv("PREFIX");
+  private final static String PREFIX       = System.getenv("PREFIX");
   private final static String PROGRAM_NAME = "afetch";
-  private final static String GREEN_BOLD = "\u001B[1;32m";
-  private final static String WHITE_BOLD = "\u001B[1;37m";
-  private final static String RESET = "\u001B[0m";
+  private final static String VERSION      = "1.0.0";
+  private final static String GREEN_BOLD   = "\u001B[1;32m";
+  private final static String WHITE_BOLD   = "\u001B[1;37m";
+  private final static String RESET        = "\u001B[0m";
 
   private static void printLogo() {
       System.out.println(GREEN_BOLD + """
@@ -61,6 +62,7 @@ public class Main {
       ,'                  ',
     ,'                      ',
    /      O           O       \\
+  |                            |
   |                            |
   |                            |
   '----------------------------'
@@ -72,12 +74,12 @@ public class Main {
     StringBuilder result = new StringBuilder();
 
     // There are only two package managers in Termux, pacman and apt/dpkg
-    int pacmanCount = countPacman(prefix);
+    int pacmanCount = countPacman(PREFIX);
     if (pacmanCount >= 0) {
       appendResult(result, pacmanCount, "pacman");
     }
 
-    int dpkgCount = countDpkg(prefix);
+    int dpkgCount = countDpkg(PREFIX);
     if (dpkgCount >= 0) {
       appendResult(result, dpkgCount, "dpkg");
     }
@@ -90,9 +92,9 @@ public class Main {
     sb.append(count).append(" (").append(name).append(")");
   }
 
-  private static int countPacman(String prefix) {
+  private static int countPacman(String PREFIX) {
     try {
-      String basePath = prefix + "/var/lib/pacman/local";
+      String basePath = PREFIX + "/var/lib/pacman/local";
       File dir = new File(basePath);
       File[] entries = dir.listFiles(File::isDirectory);
       return entries != null ? entries.length : -1;
@@ -101,9 +103,9 @@ public class Main {
     }
   }
 
-  private static int countDpkg(String prefix) {
+  private static int countDpkg(String PREFIX) {
     try {
-      String basePath = prefix + "/var/lib/dpkg/status";
+      String basePath = PREFIX + "/var/lib/dpkg/status";
       File statusFile = new File(basePath);
       if (!statusFile.exists()) return -1;
 
@@ -157,7 +159,7 @@ public class Main {
    */
     private static String getBatteryInfo() {
       // cheat a little bit :v, but slow :(
-    String exe = prefix + "/bin/termux-battery-status";
+    String exe = PREFIX + "/bin/termux-battery-status";
     if (new File(exe).exists()) {
       try {
         Process p = Runtime.getRuntime().exec(
@@ -655,6 +657,10 @@ options:
     long usedStorage = totalStorage - freeStorage;
     int storagePercent = (int) (usedStorage * 100 / totalStorage);
 
+    if (afetchCfg.get(ConfigKey.LOGO)) {
+      printLogo();
+    }
+
     System.out.println(
       GREEN_BOLD + "╭───────────────────────────────╮" + RESET
     );
@@ -762,7 +768,6 @@ options:
 
     try {
 
-      boolean withArt = true;
       Config afetchCfg = new Config();
 
       for (int i = 0; i < args.length; i++) {
@@ -772,14 +777,11 @@ options:
         } else if (args[i].equals("--help")) {
           prinHelp();
           System.exit(0);
-        } else if (args[i].equals("--no-art")) {
-          withArt = false;
+        } else if (args[i].equals("--no-logo")) {
+          afetchCfg.set(ConfigKey.LOGO, false);
         }
       }
 
-      if (withArt) {
-        printLogo();
-      }
       printSystemInfo(afetchCfg);
     } catch (Exception e) {
       e.printStackTrace();
