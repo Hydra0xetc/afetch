@@ -56,10 +56,11 @@ jobs:
 
       - name: Package Whole Project
         run: |
-          # Package the ENTIRE repository including the newly compiled afetch.apk
-          # We exclude .git and .github to keep the archive clean
-          tar --exclude='./.git' --exclude='./.github' -czvf afetch-demo.tar.gz .
-          echo "Demo package created: afetch-demo.tar.gz"
+          sync
+          sleep 1
+          tar --exclude='./.git' --exclude='./.github' \
+          --exclude='./build' --exclude='./lib' \
+          -czvf afetch-demo.tar.gz .
 
       - name: Create or Update Demo Release
         uses: softprops/action-gh-release@v2
