@@ -1,0 +1,76 @@
+name: Build Demo
+
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Configure Android D8 Path
+        run: |
+          # Use default Android SDK path if ANDROID_SDK_ROOT is empty
+          SDK_ROOT="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
+
+          # Find the latest d8 executable in build-tools
+          D8_PATH=$(find "$SDK_ROOT/build-tools" -name d8 | sort -V | tail -n 1)
+          if [ -z "$D8_PATH" ]; then
+            echo "Error: d8 not found in Android SDK!"
+            exit 1
+          fi
+
+          # Update config.sh with the runner's D8 path dynamically
+          sed -i "s|^D8=.*|D8=$D8_PATH|" config.sh
+
+      - name: Build Project
+        run: |
+          chmod +x build.sh install.sh
+          ./build.sh
+          # Ensure afetch.apk exists in the root directory
+          if [ ! -f "afetch.apk" ]; then
+            echo "Error: afetch.apk not generated!"
+            exit 1
+          fi
+
+      - name: Package Whole Project
+        run: |
+          # Package the ENTIRE repository including the newly compiled afetch.apk
+          # We exclude .git and .github to keep the archive clean
+          tar --exclude='./.git' --exclude='./.github' -czvf afetch-demo.tar.gz .
+          echo "Demo package created: afetch-demo.tar.gz"
+
+      - name: Create or Update Demo Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: demo
+          name: "Demo Release"
+          body: |
+            Automated demo build of the whole project.
+            This release is automatically updated on every push to the master branch.
+            Contains full source, build scripts, and compiled afetch.apk.
+          files: |
+            afetch-demo.tar.gz
+          draft: false
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

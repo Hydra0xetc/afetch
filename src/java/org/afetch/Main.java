@@ -65,8 +65,7 @@ public class Main {
   |                            |
   '----------------------------'
   """ + WHITE_BOLD + """
-   ******    ANDROID     ******
-  """ + RESET);
+   ******    ANDROID     ******""" + RESET);
   }
 
   private static String getPackageInfo() {
