@@ -43,6 +43,8 @@ jobs:
           sed -i "s|^D8=.*|D8=$D8_PATH|" config.sh
 
       - name: Build Project
+        env:
+          TMPDIR: /tmp
         run: |
           chmod +x build.sh install.sh
           ./build.sh
