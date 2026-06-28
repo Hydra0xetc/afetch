@@ -1,7 +1,9 @@
 # afetch
 a neofetch like tools but focused for Android (Termux)
 
-<img src="./resource/example.jpg" alt="example">
+<p align="center">
+  <img src="./resource/example.jpg" alt="example" width="500">
+</p>
 
 > [!WARNING]
 > This tool still under development
