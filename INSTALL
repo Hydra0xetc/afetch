@@ -1,0 +1,8 @@
+* TUTORIAL HOW TO INSTALL THIS PROJECT *
+
+I already add a install.sh script it by default will installing in $PREFIX
+afetch executabel will be in $PREFIX/bin/afetch, afetch.apk and LICENSE
+will be in $PREFIX/share/afetch/
+
+and you can add --prefix /path/to/you/custom/install_dir/ and use --help
+to get more options.
