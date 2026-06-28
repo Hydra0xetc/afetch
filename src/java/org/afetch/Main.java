@@ -51,9 +51,11 @@ public class Main {
   private final static String PREFIX       = System.getenv("PREFIX");
   private final static String PROGRAM_NAME = "afetch";
   private final static String VERSION      = "1.0.0";
-  private final static String GREEN_BOLD   = "\u001B[1;32m";
-  private final static String WHITE_BOLD   = "\u001B[1;37m";
-  private final static String RESET        = "\u001B[0m";
+  private static final String GREEN_BOLD  = "\u001B[1;32m";
+  private static final String YELLOW_BOLD = "\u001B[1;33m";
+  private static final String RED_BOLD    = "\u001B[1;31m";
+  private static final String WHITE_BOLD  = "\u001B[1;37m";
+  private static final String RESET       = "\u001B[0m";
 
   private static void printLogo() {
       System.out.println(GREEN_BOLD + """
@@ -147,6 +149,21 @@ public class Main {
     }
   }
 
+  private static String batteryColor(int percent) {
+    if (percent <= 20) {
+      return RED_BOLD +
+        String.valueOf(percent) + "%" + RESET;
+    }
+
+    if (percent <= 50) {
+      return YELLOW_BOLD +
+        String.valueOf(percent) + "%" + RESET;
+    }
+
+    return GREEN_BOLD +
+      String.valueOf(percent) + "%" + RESET;
+  }
+
   /* I Already Try Using BatteryManager with FakeContext (System Context)
    * And I Got The Following Error.
    *
@@ -178,10 +195,11 @@ public class Main {
         }
 
         JSONObject obj = new JSONObject(sb.toString());
+        int batteryPercent = obj.getInt("percentage");
 
         return String.format(
-          "%d%% (%s, %.1f°C)",
-          obj.getInt("percentage"),
+          "%s (%s, %.1f°C)",
+          batteryColor(batteryPercent),
           obj.getString("status")
           .toLowerCase(),
           obj.getDouble("temperature")
@@ -637,6 +655,21 @@ options:
     );
   }
 
+  private static String percentColor(int percent) {
+    if (percent >= 80) {
+      return RED_BOLD +
+        String.valueOf(percent) + "%" + RESET;
+    }
+
+    if (percent >= 65) {
+      return YELLOW_BOLD +
+        String.valueOf(percent) + "%" + RESET;
+    }
+
+    return GREEN_BOLD +
+      String.valueOf(percent) + "%" + RESET;
+  }
+
   private static void printSystemInfo(Config afetchCfg)
       throws Exception {
     Context ctx = FakeContext.getSystemContext();
@@ -727,10 +760,10 @@ options:
       row(
           "Memory",
           String.format(
-            "%s / %s (%d%%)",
+            "%s / %s (%s)",
             formatGiB(usedMem),
             formatGiB(totalMem),
-            memPercent
+            percentColor(memPercent)
           )
       );
     }
@@ -739,10 +772,10 @@ options:
       row(
           "Storage",
           String.format(
-            "%s / %s (%d%%)",
+            "%s / %s (%s)",
             formatGiB(totalStorage - freeStorage),
             formatGiB(totalStorage),
-            storagePercent
+            percentColor(storagePercent)
         )
       );
     }
@@ -779,6 +812,8 @@ options:
           System.exit(0);
         } else if (args[i].equals("--no-logo")) {
           afetchCfg.set(ConfigKey.LOGO, false);
+        } else if (args[i].equals("--version")) {
+          System.out.println(VERSION);
         }
       }
 
