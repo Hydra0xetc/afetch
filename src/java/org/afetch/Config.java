@@ -47,6 +47,7 @@ public class Config {
   }
 
   public boolean get(ConfigKey key) {
+    // NOTE: i think better if loaded once
     if (new File(cfgPath).exists()) {
       loadConfig();
     }

@@ -57,19 +57,21 @@ public class Main {
   private static final String WHITE_BOLD  = "\u001B[1;37m";
   private static final String RESET       = "\u001B[0m";
 
+  // NOTE: I Think better if the logo have bigger eye LUL ;v
   private static void printLogo() {
       System.out.println(GREEN_BOLD + """
-     ;,                    ,;
-      ';,.--------------.,;'
-      ,'                  ',
-    ,'                      ',
-   /      O           O       \\
-  |                            |
-  |                            |
-  |                            |
-  '----------------------------'
+     ;,                       ,;
+      ';,.-----------------.,;'
+      ,'                     ',
+    ,'                         ',
+   /      O               O      \\
+  |                               |
+  |                               |
+  |                               |
+  |                               |
+  '-------------------------------'
   """ + WHITE_BOLD + """
-   ******    ANDROID     ******""" + RESET);
+  ******       ANDROID       ******""" + RESET);
   }
 
   private static String getPackageInfo() {
@@ -632,8 +634,9 @@ Usage: %s [OPTIONS]
 
 options:
   --help    print this help message
+  --version print afetch version
   --cfg     create a default config
-  --no-art  print info without the logo
+  --no-logo print info without the logo
 \n""", PROGRAM_NAME);
   }
 
@@ -814,6 +817,7 @@ options:
           afetchCfg.set(ConfigKey.LOGO, false);
         } else if (args[i].equals("--version")) {
           System.out.println(VERSION);
+          System.exit(0);
         }
       }
 
