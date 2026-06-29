@@ -38,7 +38,11 @@ set -e
 export PATH=/system/bin/
 export CLASSPATH="$prefix/share/afetch/$OUTPUT_APK"
 
-exec app_process -Xnoimage-dex2oat / "$class" "\$@" 2>/dev/null
+if [[ \$VERBOSE == true ]]; then
+  exec app_process -Xnoimage-dex2oat / "$class" "\$@"
+else
+  exec app_process -Xnoimage-dex2oat / "$class" "\$@" 2>/dev/null
+fi
 EOF
 )
 
