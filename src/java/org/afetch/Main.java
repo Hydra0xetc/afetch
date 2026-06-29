@@ -823,12 +823,12 @@ options:
     );
 
     row("OS",
-        String.format(
-          "%s (API %d)",
-          getAndroidCodename(),
-          Build.VERSION.SDK_INT
-          )
-       );
+      String.format(
+        "%s (API %d)",
+        getAndroidCodename(),
+        Build.VERSION.SDK_INT
+      )
+    );
 
     if (afetchCfg.get(ConfigKey.HOST)) {
       row("Host", getHost());
@@ -882,24 +882,24 @@ options:
 
     if (afetchCfg.get(ConfigKey.MEMORY)) {
       row(
-          "Memory",
-          String.format(
-            "%s / %s (%s)",
-            formatGiB(usedMem),
-            formatGiB(totalMem),
-            percentColor(memPercent)
-          )
+        "Memory",
+        String.format(
+          "%s / %s (%s)",
+          formatGiB(usedMem),
+          formatGiB(totalMem),
+          percentColor(memPercent)
+        )
       );
     }
 
     if (afetchCfg.get(ConfigKey.STORAGE)) {
       row(
-          "Storage",
-          String.format(
-            "%s / %s (%s)",
-            formatGiB(totalStorage - freeStorage),
-            formatGiB(totalStorage),
-            percentColor(storagePercent)
+        "Storage",
+        String.format(
+          "%s / %s (%s)",
+          formatGiB(totalStorage - freeStorage),
+          formatGiB(totalStorage),
+          percentColor(storagePercent)
         )
       );
     }
