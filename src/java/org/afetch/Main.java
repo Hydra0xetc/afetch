@@ -230,26 +230,26 @@ public class Main {
         // Android 10
         batteryIntent = (Intent) registerReceiver.invoke(
             am,
-            null,           // IApplicationThread
-            "com.termux",   // calling package
-            null,           // IIntentReceiver
+            null,        // IApplicationThread
+            null,        // calling package
+            null,        // IIntentReceiver
             filter,
-            null,           // permission
-            0,              // userId
-            0               // flags
+            null,        // permission
+            0,           // userId
+            0            // flags
         );
       } else if (registerReceiver.getParameterCount() == 8) {
         // Android 11+
         batteryIntent = (Intent) registerReceiver.invoke(
             am,
-            null,           // IApplicationThread
-            "com.termux",   // calling package
-            null,           // callingFeatureId
-            null,           // IIntentReceiver
+            null,        // IApplicationThread
+            null,        // calling package
+            null,        // callingFeatureId
+            null,        // IIntentReceiver
             filter,
-            null,           // permission
-            0,              // userId
-            0               // flags
+            null,        // permission
+            0,           // userId
+            0            // flags
         );
       } else {
         throw new UnsupportedOperationException(

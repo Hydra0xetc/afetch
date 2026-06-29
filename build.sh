@@ -46,7 +46,7 @@ find src/java -name '*.aidl' | while read -r file; do
         "$out"
 done
 
-echo "[*] Javac compiling"
+echo "[*] Compiling to class"
 find src/java -name '*.java' > sources.txt
 javac \
     -cp "$ANDROID" \
