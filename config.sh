@@ -9,6 +9,7 @@ ANDROID=$ANDROID_DIR/android.jar
 # i don't know why but if i use d8 or r8 from termux repo i keep getting a error
 # so i use d8 from my android-sdk
 D8=$HOME/opt/android-sdk/build-tools/35.0.0/d8
+AIDL=$HOME/opt/android-sdk/build-tools/35.0.0/aidl
 RULES=src/proguard-rules.pro
 R8=$HOME/opt/r8/8.8.46/r8
 BUILD=build/

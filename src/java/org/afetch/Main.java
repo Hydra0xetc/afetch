@@ -1,5 +1,8 @@
 package org.afetch;
 
+import android.app.IActivityManager;
+import android.os.BatteryManager;
+
 import android.opengl.EGL14;
 import android.opengl.EGLConfig;
 import android.opengl.EGLContext;
@@ -18,6 +21,7 @@ import android.util.DisplayMetrics;
 import android.view.WindowManager;
 import android.view.Display;
 
+import android.os.ServiceManager;
 import android.os.Build;
 import android.os.Environment;
 import android.os.Looper;
@@ -35,7 +39,11 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.InputStreamReader;
 
+import java.lang.reflect.Method;
+
 import org.json.JSONObject;
+
+import static org.afetch.Logger.Level.*;
 
 /*
  *   ;,           ,;
@@ -48,14 +56,17 @@ import org.json.JSONObject;
  */
 
 public class Main {
-  private final static String PREFIX       = System.getenv("PREFIX");
-  private final static String PROGRAM_NAME = "afetch";
-  private final static String VERSION      = "1.0.0";
-  private static final String GREEN_BOLD  = "\u001B[1;32m";
-  private static final String YELLOW_BOLD = "\u001B[1;33m";
-  private static final String RED_BOLD    = "\u001B[1;31m";
-  private static final String WHITE_BOLD  = "\u001B[1;37m";
-  private static final String RESET       = "\u001B[0m";
+  private static final String TAG          = "Main";
+  private static final String PREFIX       = System.getenv("PREFIX");
+  private static final String PROGRAM_NAME = "afetch";
+  private static final String VERSION      = "1.0.1";
+  private static final String GREEN_BOLD   = "\u001B[1;32m";
+  private static final String YELLOW_BOLD  = "\u001B[1;33m";
+  private static final String RED_BOLD     = "\u001B[1;31m";
+  private static final String WHITE_BOLD   = "\u001B[1;37m";
+  private static final String RESET        = "\u001B[0m";
+
+  private static Logger logger = Logger.getInstance();
 
   // NOTE: I Think better if the logo have bigger eye LUL ;v
   private static void printLogo() {
@@ -166,24 +177,134 @@ public class Main {
       String.valueOf(percent) + "%" + RESET;
   }
 
-  /* I Already Try Using BatteryManager with FakeContext (System Context)
-   * And I Got The Following Error.
-   *
-   * ```console
-   * java.lang.SecurityException: Unable to find app for caller
-   * android.app.IApplicationThread$Stub$Proxy@d0d0873 (pid=20520) when
-   * registering receiver null
-   * ```
-   * For Now Lets Use `termux-battery-status`
-   */
-    private static String getBatteryInfo() {
-      // cheat a little bit :v, but slow :(
+  private static String batteryStatus(long status) {
+    return switch ((int) status) {
+      case BatteryManager.BATTERY_STATUS_UNKNOWN ->
+        "Unknown";
+
+      case BatteryManager.BATTERY_STATUS_CHARGING ->
+        "Charging";
+
+      case BatteryManager.BATTERY_STATUS_DISCHARGING ->
+        "Discharging";
+
+      case BatteryManager.BATTERY_STATUS_NOT_CHARGING ->
+        "Not charging";
+
+      case BatteryManager.BATTERY_STATUS_FULL ->
+        "Full";
+
+      default ->
+        "Invalid (" + status + ")";
+    };
+  }
+
+  private static String getBatteryInfo() {
+    try {
+      IActivityManager am =
+        IActivityManager.Stub.asInterface(
+          ServiceManager.getService("activity")
+      );
+
+      Method registerReceiver = null;
+
+      for (Method m : IActivityManager.class.getDeclaredMethods()) {
+        if (m.getName().equals("registerReceiver")) {
+          registerReceiver = m;
+          break;
+        }
+      }
+
+      if (registerReceiver == null) {
+        throw new NoSuchMethodException(
+          "registerReceiver not found"
+        );
+      }
+
+      IntentFilter filter =
+        new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+
+      Intent batteryIntent;
+
+      if (registerReceiver.getParameterCount() == 7) {
+        // Android 10
+        batteryIntent = (Intent) registerReceiver.invoke(
+            am,
+            null,           // IApplicationThread
+            "com.termux",   // calling package
+            null,           // IIntentReceiver
+            filter,
+            null,           // permission
+            0,              // userId
+            0               // flags
+        );
+      } else if (registerReceiver.getParameterCount() == 8) {
+        // Android 11+
+        batteryIntent = (Intent) registerReceiver.invoke(
+            am,
+            null,           // IApplicationThread
+            "com.termux",   // calling package
+            null,           // callingFeatureId
+            null,           // IIntentReceiver
+            filter,
+            null,           // permission
+            0,              // userId
+            0               // flags
+        );
+      } else {
+        throw new UnsupportedOperationException(
+          registerReceiver.toString()
+        );
+      }
+
+      if (batteryIntent != null) {
+        int level = batteryIntent.getIntExtra(
+          BatteryManager.EXTRA_LEVEL,
+          -1
+        );
+
+        int scale = batteryIntent.getIntExtra(
+          BatteryManager.EXTRA_SCALE,
+          100
+        );
+
+        int percent = level * 100 / scale;
+
+        int status = batteryIntent.getIntExtra(
+          BatteryManager.EXTRA_STATUS,
+          BatteryManager.BATTERY_STATUS_UNKNOWN
+        );
+
+        int temp = batteryIntent.getIntExtra(
+          BatteryManager.EXTRA_TEMPERATURE,
+          0
+        );
+
+        String technology = batteryIntent.getStringExtra(
+          BatteryManager.EXTRA_TECHNOLOGY
+        );
+
+        return String.format(
+          "%s [%s | %.1f°C | %s]",
+          batteryColor(percent),
+          batteryStatus(status),
+          temp / 10.0,
+          technology
+        );
+      }
+
+    } catch (Throwable e) {
+      logger.log(WARN, TAG,
+        "registerReceiver failed: " + e.getMessage()
+      );
+    }
+
+    // Fallback to termux-battery-status if registerReceiver failed
     String exe = PREFIX + "/bin/termux-battery-status";
+
     if (new File(exe).exists()) {
       try {
-        Process p = Runtime.getRuntime().exec(
-          exe
-        );
+        Process p = Runtime.getRuntime().exec(exe);
 
         BufferedReader br = new BufferedReader(
           new InputStreamReader(p.getInputStream())
@@ -197,19 +318,19 @@ public class Main {
         }
 
         JSONObject obj = new JSONObject(sb.toString());
-        int batteryPercent = obj.getInt("percentage");
+
+        int percent = obj.getInt("percentage");
 
         return String.format(
-          "%s (%s, %.1f°C)",
-          batteryColor(batteryPercent),
-          obj.getString("status")
-          .toLowerCase(),
-          obj.getDouble("temperature")
+          "%s [%s | %.1f°C | %s]",
+          batteryColor(percent),
+          obj.getString("status").toLowerCase(),
+          obj.getDouble("temperature"),
+          obj.getString("technology")
         );
 
       } catch (Exception e) {
         e.printStackTrace();
-        return "Unknown";
       }
     }
 
@@ -373,17 +494,17 @@ public class Main {
       if (display != EGL14.EGL_NO_DISPLAY) {
 
         EGL14.eglMakeCurrent(
-            display,
-            EGL14.EGL_NO_SURFACE,
-            EGL14.EGL_NO_SURFACE,
-            EGL14.EGL_NO_CONTEXT
-            );
+          display,
+          EGL14.EGL_NO_SURFACE,
+          EGL14.EGL_NO_SURFACE,
+          EGL14.EGL_NO_CONTEXT
+        );
 
         if (surface != EGL14.EGL_NO_SURFACE) {
           EGL14.eglDestroySurface(
-              display,
-              surface
-              );
+            display,
+            surface
+          );
         }
 
         if (context != EGL14.EGL_NO_CONTEXT) {

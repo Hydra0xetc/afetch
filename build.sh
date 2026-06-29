@@ -33,11 +33,28 @@ rm -rf "$BUILD"
 rm -f classes.dex "$OUTPUT_APK"
 mkdir -p "$BUILD"
 
+echo "[*] Processing AIDL"
+find src/java -name '*.aidl' | while read -r file; do
+    out="${file%.aidl}.java"
+
+    # Skip parcelable declarations
+    grep -q '^parcelable ' "$file" && continue
+
+    "$AIDL" \
+        -I src/java \
+        "$file" \
+        "$out"
+done
+
 echo "[*] Javac compiling"
-javac -cp "$ANDROID" \
-      -d "$BUILD" \
-      --release 17 \
-      src/java/"$PACKAGE_NAME"/*.java
+find src/java -name '*.java' > sources.txt
+javac \
+    -cp "$ANDROID" \
+    -d "$BUILD" \
+    --release 17 \
+    @sources.txt
+
+rm sources.txt
 
 if [[ $MINIFIED == true ]]; then
     echo "[*] Compiling to dex (minify)"
