@@ -9,36 +9,18 @@ permissions:
   contents: write
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        include:
-          - name: minify
-            minified: true
-            archive: afetch-minify.tar.gz
-            tag: release-minify
-            release_name: "Release Minify"
-
-          - name: normal
-            minified: false
-            archive: afetch.tar.gz
-            tag: release
-            release_name: "Release"
-
+  build-normal:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           java-version: "17"
           distribution: temurin
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.x"
 
@@ -48,6 +30,63 @@ jobs:
 
           D8_PATH=$(find "$SDK_ROOT/build-tools" -name d8 | sort -V | tail -n 1)
           AIDL_PATH=$(find "$SDK_ROOT/build-tools" -name aidl | sort -V | tail -n 1)
+
+          [ -n "$D8_PATH" ]   || { echo "d8 not found"; exit 1; }
+          [ -n "$AIDL_PATH" ] || { echo "aidl not found"; exit 1; }
+
+          sed -i "s|^D8=.*|D8=$D8_PATH|" config.sh
+          sed -i "s|^AIDL=.*|AIDL=$AIDL_PATH|" config.sh
+          sed -i "s|^MINIFIED=.*|MINIFIED=false|" config.sh
+
+      - name: Build non minify
+        run: |
+          chmod +x build.sh install.sh
+          ./build.sh
+
+      - name: Package non minify
+        run: |
+          ARCHIVE=afetch.tar.gz
+          DIR_NAME="${ARCHIVE%.tar.gz}"
+          touch $ARCHIVE
+
+          tar \
+            --exclude='./.git' \
+            --exclude='./.github' \
+            --exclude='./build' \
+            --exclude='./lib' \
+            --transform "s,^\./,${DIR_NAME}/," \
+            -czvf "$ARCHIVE" .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: afetch
+          path: afetch.tar.gz
+
+
+  build-minify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: temurin
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Configure Android Tools
+        run: |
+          SDK_ROOT="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
+
+          D8_PATH=$(find "$SDK_ROOT/build-tools" -name d8 | sort -V | tail -n 1)
+          AIDL_PATH=$(find "$SDK_ROOT/build-tools" -name aidl | sort -V | tail -n 1)
+
+          [ -n "$D8_PATH" ]   || { echo "d8 not found"; exit 1; }
+          [ -n "$AIDL_PATH" ] || { echo "aidl not found"; exit 1; }
 
           curl -L \
             https://storage.googleapis.com/r8-releases/raw/8.4.46/r8lib.jar \
@@ -66,50 +105,65 @@ jobs:
 
           chmod +x r8
 
-          R8_PATH="$(pwd)/r8"
-
-          [ -n "$D8_PATH" ]   || { echo "d8 not found"; exit 1; }
-          [ -n "$AIDL_PATH" ] || { echo "aidl not found"; exit 1; }
-
           sed -i "s|^D8=.*|D8=$D8_PATH|" config.sh
           sed -i "s|^AIDL=.*|AIDL=$AIDL_PATH|" config.sh
-          sed -i "s|^MINIFIED=.*|MINIFIED=${{ matrix.minified }}|" config.sh
+          sed -i "s|^MINIFIED=.*|MINIFIED=true|" config.sh
+          sed -i "s|^R8=.*|R8=$(pwd)/r8|" config.sh
 
-          if [ "${{ matrix.minified }}" = "true" ]; then
-            [ -x "$R8_PATH" ] || { echo "r8 executable not found"; exit 1; }
-            sed -i "s|^R8=.*|R8=$R8_PATH|" config.sh
-          fi
-
-      - name: Build
+      - name: Build minify
         run: |
           chmod +x build.sh install.sh
           ./build.sh
 
-      - name: Package
+      - name: Package minify
         run: |
-          DIR_NAME="${{ matrix.archive }}"
-          DIR_NAME="${DIR_NAME%.tar.gz}"
+          ARCHIVE=afetch-minify.tar.gz
+          DIR_NAME="${ARCHIVE%.tar.gz}"
 
-          touch "${{ matrix.archive }}"
+          touch $ARCHIVE
           tar \
             --exclude='./.git' \
             --exclude='./.github' \
             --exclude='./build' \
             --exclude='./lib' \
             --transform "s,^\./,${DIR_NAME}/," \
-            -czvf "${{ matrix.archive }}" .
+            -czvf "$ARCHIVE" .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: afetch-minify
+          path: afetch-minify.tar.gz
+
+
+  release:
+    needs:
+      - build-normal
+      - build-minify
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: afetch
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: afetch-minify
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ matrix.tag }}
-          name: ${{ matrix.release_name }}
+          tag_name: release-1.0.2
+          name: Release 1.0.2
           body: |
             finally release 1.0.2
 
           files: |
-            ${{ matrix.archive }}
+            afetch.tar.gz
+            afetch-minify.tar.gz
+
           draft: false
-          prerelease: true
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
