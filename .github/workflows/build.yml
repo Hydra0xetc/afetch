@@ -54,6 +54,8 @@ jobs:
             --exclude='./.github' \
             --exclude='./build' \
             --exclude='./lib' \
+            --exclude='./r8' \
+            --exclude='./r8.jar' \
             --transform "s,^\./,${DIR_NAME}/," \
             -czvf "$ARCHIVE" .
 
@@ -126,6 +128,8 @@ jobs:
             --exclude='./.github' \
             --exclude='./build' \
             --exclude='./lib' \
+            --exclude='./r8' \
+            --exclude='./r8.jar' \
             --transform "s,^\./,${DIR_NAME}/," \
             -czvf "$ARCHIVE" .
 
