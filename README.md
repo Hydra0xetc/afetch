@@ -37,6 +37,8 @@ apkCount=true         # show apk count including system apk
 packageCount=true     # show package count including package manager name like pacman and dpkg
 localIP=true          # show local ip address and network interface name
 ```
+> [!WARNING]
+> `--cfg` can overwrite your existing configuration so be careful.
 
 ## License
 [MIT](./LICENSE)
