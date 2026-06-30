@@ -17,7 +17,7 @@ get_android_version() {
 
 if [[ ! -f "$ANDROID" ]]; then
     mkdir -p "$ANDROID_DIR"
-    ZIP=$TMPDIR/platform-${ANDROID_API}.zip
+    ZIP="${TMPDIR:-/tmp}/platform-${ANDROID_API}.zip"
     DL_URL=$(python fetch_android.py "$ANDROID_API")
     echo "[*] Downloading $ANDROID"
     # is there any way to just android.jar not whole android platforms
