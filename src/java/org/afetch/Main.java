@@ -938,7 +938,6 @@ options:
     }
 
     if (afetchCfg.get(ConfigKey.DE)) {
-      // Fastfetch menyebutnya DE
       row("DE", Build.DISPLAY);
     }
 
