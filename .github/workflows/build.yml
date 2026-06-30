@@ -90,7 +90,7 @@ jobs:
           DIR_NAME="${{ matrix.archive }}"
           DIR_NAME="${DIR_NAME%.tar.gz}"
 
-          touch $DIR_NAME
+          touch "${{ matrix.archive }}"
           tar \
             --exclude='./.git' \
             --exclude='./.github' \
