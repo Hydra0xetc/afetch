@@ -63,8 +63,8 @@ jobs:
       - name: Create or Update Demo Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: demo
-          name: "Demo Release"
+          tag_name: ${{ matrix.tag }}
+          name: ${{ matrix.release_name }}
           body: |
             Automated demo build of the whole project.
             This release is automatically updated on every push to the master branch.
