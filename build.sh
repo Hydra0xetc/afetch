@@ -17,7 +17,7 @@ get_android_version() {
 
 if [[ ! -f "$ANDROID" ]]; then
     mkdir -p "$ANDROID_DIR"
-    ZIP=$TMPDIR/platform-${ANDROID_API}.zip
+    ZIP="${TMPDIR:-/tmp}/platform-${ANDROID_API}.zip"
     DL_URL=$(python fetch_android.py "$ANDROID_API")
     echo "[*] Downloading $ANDROID"
     # is there any way to just android.jar not whole android platforms
@@ -33,11 +33,28 @@ rm -rf "$BUILD"
 rm -f classes.dex "$OUTPUT_APK"
 mkdir -p "$BUILD"
 
-echo "[*] Javac compiling"
-javac -cp "$ANDROID" \
-      -d "$BUILD" \
-      --release 17 \
-      src/java/"$PACKAGE_NAME"/*.java
+echo "[*] Processing AIDL"
+find src/java -name '*.aidl' | while read -r file; do
+    out="${file%.aidl}.java"
+
+    # Skip parcelable declarations
+    grep -q '^parcelable ' "$file" && continue
+
+    "$AIDL" \
+        -I src/java \
+        "$file" \
+        "$out"
+done
+
+echo "[*] Compiling to class"
+find src/java -name '*.java' > sources.txt
+javac \
+    -cp "$ANDROID" \
+    -d "$BUILD" \
+    --release 17 \
+    @sources.txt
+
+rm sources.txt
 
 if [[ $MINIFIED == true ]]; then
     echo "[*] Compiling to dex (minify)"

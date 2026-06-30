@@ -1,4 +1,4 @@
-name: Build Demo
+name: Build Release
 
 on:
   push:
@@ -10,6 +10,21 @@ permissions:
 
 jobs:
   build:
+    strategy:
+      matrix:
+        include:
+          - name: minify
+            minified: true
+            archive: afetch-minify.tar.gz
+            tag: release-minify
+            release_name: "Release Minify"
+
+          - name: normal
+            minified: false
+            archive: afetch.tar.gz
+            tag: release
+            release_name: "Release"
+
     runs-on: ubuntu-latest
 
     steps:
@@ -19,60 +34,81 @@ jobs:
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
-          distribution: 'temurin'
+          java-version: "17"
+          distribution: temurin
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: "3.x"
 
-      - name: Configure Android D8 Path
+      - name: Configure Android Tools
         run: |
-          # Use default Android SDK path if ANDROID_SDK_ROOT is empty
           SDK_ROOT="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
 
-          # Find the latest d8 executable in build-tools
           D8_PATH=$(find "$SDK_ROOT/build-tools" -name d8 | sort -V | tail -n 1)
-          if [ -z "$D8_PATH" ]; then
-            echo "Error: d8 not found in Android SDK!"
-            exit 1
+          AIDL_PATH=$(find "$SDK_ROOT/build-tools" -name aidl | sort -V | tail -n 1)
+
+          curl -L \
+            https://storage.googleapis.com/r8-releases/raw/8.4.46/r8lib.jar \
+            -o r8.jar
+
+          cat > r8 << 'EOF'
+          #!/usr/bin/env bash
+
+          HERE="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
+
+          exec java \
+            -cp "$HERE/r8.jar" \
+            com.android.tools.r8.R8 \
+            "$@"
+          EOF
+
+          chmod +x r8
+
+          R8_PATH="$(pwd)/r8"
+
+          [ -n "$D8_PATH" ]   || { echo "d8 not found"; exit 1; }
+          [ -n "$AIDL_PATH" ] || { echo "aidl not found"; exit 1; }
+
+          sed -i "s|^D8=.*|D8=$D8_PATH|" config.sh
+          sed -i "s|^AIDL=.*|AIDL=$AIDL_PATH|" config.sh
+          sed -i "s|^MINIFIED=.*|MINIFIED=${{ matrix.minified }}|" config.sh
+
+          if [ "${{ matrix.minified }}" = "true" ]; then
+            [ -x "$R8_PATH" ] || { echo "r8 executable not found"; exit 1; }
+            sed -i "s|^R8=.*|R8=$R8_PATH|" config.sh
           fi
 
-          # Update config.sh with the runner's D8 path dynamically
-          sed -i "s|^D8=.*|D8=$D8_PATH|" config.sh
-
-      - name: Build Project
-        env:
-          TMPDIR: /tmp
+      - name: Build
         run: |
           chmod +x build.sh install.sh
           ./build.sh
-          # Ensure afetch.apk exists in the root directory
-          if [ ! -f "afetch.apk" ]; then
-            echo "Error: afetch.apk not generated!"
-            exit 1
-          fi
 
-      - name: Package project
+      - name: Package
         run: |
-          touch afetch-demo.tar.gz
-          tar --exclude='./.git' --exclude='./.github' \
-              --exclude='./build' --exclude='./lib' \
-              --transform 's,^\./,afetch-demo/,' \
-              -czvf afetch-demo.tar.gz .
+          DIR_NAME="${{ matrix.archive }}"
+          DIR_NAME="${DIR_NAME%.tar.gz}"
 
-      - name: Create or Update Demo Release
+          touch $DIR_NAME
+          tar \
+            --exclude='./.git' \
+            --exclude='./.github' \
+            --exclude='./build' \
+            --exclude='./lib' \
+            --transform "s,^\./,${DIR_NAME}/," \
+            -czvf "${{ matrix.archive }}" .
+
+      - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: demo
-          name: "Demo Release"
+          tag_name: ${{ matrix.tag }}
+          name: ${{ matrix.release_name }}
           body: |
-            Automated demo build of the whole project.
-            This release is automatically updated on every push to the master branch.
-            Contains full source, build scripts, and compiled afetch.apk.
+            finally release 1.0.2
+
           files: |
-            afetch-demo.tar.gz
+            ${{ matrix.archive }}
           draft: false
           prerelease: true
         env:

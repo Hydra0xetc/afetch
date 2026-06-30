@@ -1,5 +1,8 @@
 package org.afetch;
 
+import android.app.IActivityManager;
+import android.os.BatteryManager;
+
 import android.opengl.EGL14;
 import android.opengl.EGLConfig;
 import android.opengl.EGLContext;
@@ -18,12 +21,18 @@ import android.util.DisplayMetrics;
 import android.view.WindowManager;
 import android.view.Display;
 
+import android.os.ServiceManager;
 import android.os.Build;
 import android.os.Environment;
 import android.os.Looper;
 import android.os.StatFs;
 import android.os.SystemClock;
 
+import java.net.NetworkInterface;
+import java.net.InetAddress;
+import java.net.Inet4Address;
+
+import java.util.Enumeration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.TreeMap;
@@ -35,7 +44,11 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.InputStreamReader;
 
+import java.lang.reflect.Method;
+
 import org.json.JSONObject;
+
+import static org.afetch.Logger.Level.*;
 
 /*
  *   ;,           ,;
@@ -48,36 +61,84 @@ import org.json.JSONObject;
  */
 
 public class Main {
-  private static String prefix = System.getenv("PREFIX");
-  private final static String PROGRAM_NAME = "afetch";
-  private final static String GREEN_BOLD = "\u001B[1;32m";
-  private final static String WHITE_BOLD = "\u001B[1;37m";
-  private final static String RESET = "\u001B[0m";
+  private static final String TAG          = "Main";
+  private static final String PREFIX       = System.getenv("PREFIX");
+  private static final String PROGRAM_NAME = "afetch";
+  private static final String VERSION      = "1.0.2";
+  private static final String GREEN_BOLD   = "\u001B[1;32m";
+  private static final String YELLOW_BOLD  = "\u001B[1;33m";
+  private static final String RED_BOLD     = "\u001B[1;31m";
+  private static final String WHITE_BOLD   = "\u001B[1;37m";
+  private static final String RESET        = "\u001B[0m";
 
+  private static Logger logger = Logger.getInstance();
+
+  // NOTE: I Think better if the logo have bigger eye LUL ;v
   private static void printLogo() {
       System.out.println(GREEN_BOLD + """
-     ;,                    ,;
-      ';,.--------------.,;'
-      ,'                  ',
-    ,'                      ',
-   /      O           O       \\
-  |                            |
-  |                            |
-  '----------------------------'
+     ;,                       ,;
+      ';,.-----------------.,;'
+      ,'                     ',
+    ,'                         ',
+   /      O               O      \\
+  |                               |
+  |                               |
+  |                               |
+  |                               |
+  '-------------------------------'
   """ + WHITE_BOLD + """
-   ******    ANDROID     ******""" + RESET);
+  ******       ANDROID       ******""" + RESET);
+  }
+
+  private static String getLocalIP() {
+    try {
+      Enumeration<NetworkInterface> interfaces =
+        NetworkInterface.getNetworkInterfaces();
+
+      while (interfaces.hasMoreElements()) {
+        NetworkInterface iface = interfaces.nextElement();
+
+        if (!iface.isUp() || iface.isLoopback()) {
+          continue;
+        }
+
+        Enumeration<InetAddress> addresses =
+          iface.getInetAddresses();
+
+        while (addresses.hasMoreElements()) {
+          InetAddress addr = addresses.nextElement();
+
+          if (addr.isLoopbackAddress()) {
+            continue;
+          }
+
+          if (addr instanceof Inet4Address) {
+            return String.format(
+              "%s ("+GREEN_BOLD+"%s"+RESET+")",
+              addr.getHostAddress(),
+              iface.getName()
+            );
+          }
+        }
+      }
+
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
+    return "Unknown";
   }
 
   private static String getPackageInfo() {
     StringBuilder result = new StringBuilder();
 
     // There are only two package managers in Termux, pacman and apt/dpkg
-    int pacmanCount = countPacman(prefix);
+    int pacmanCount = countPacman(PREFIX);
     if (pacmanCount >= 0) {
       appendResult(result, pacmanCount, "pacman");
     }
 
-    int dpkgCount = countDpkg(prefix);
+    int dpkgCount = countDpkg(PREFIX);
     if (dpkgCount >= 0) {
       appendResult(result, dpkgCount, "dpkg");
     }
@@ -90,9 +151,9 @@ public class Main {
     sb.append(count).append(" (").append(name).append(")");
   }
 
-  private static int countPacman(String prefix) {
+  private static int countPacman(String PREFIX) {
     try {
-      String basePath = prefix + "/var/lib/pacman/local";
+      String basePath = PREFIX + "/var/lib/pacman/local";
       File dir = new File(basePath);
       File[] entries = dir.listFiles(File::isDirectory);
       return entries != null ? entries.length : -1;
@@ -101,9 +162,9 @@ public class Main {
     }
   }
 
-  private static int countDpkg(String prefix) {
+  private static int countDpkg(String PREFIX) {
     try {
-      String basePath = prefix + "/var/lib/dpkg/status";
+      String basePath = PREFIX + "/var/lib/dpkg/status";
       File statusFile = new File(basePath);
       if (!statusFile.exists()) return -1;
 
@@ -145,24 +206,149 @@ public class Main {
     }
   }
 
-  /* I Already Try Using BatteryManager with FakeContext (System Context)
-   * And I Got The Following Error.
-   *
-   * ```console
-   * java.lang.SecurityException: Unable to find app for caller
-   * android.app.IApplicationThread$Stub$Proxy@d0d0873 (pid=20520) when
-   * registering receiver null
-   * ```
-   * For Now Lets Use `termux-battery-status`
-   */
-    private static String getBatteryInfo() {
-      // cheat a little bit :v, but slow :(
-    String exe = prefix + "/bin/termux-battery-status";
+  private static String batteryColor(int percent) {
+    if (percent <= 20) {
+      return RED_BOLD +
+        String.valueOf(percent) + "%" + RESET;
+    }
+
+    if (percent <= 50) {
+      return YELLOW_BOLD +
+        String.valueOf(percent) + "%" + RESET;
+    }
+
+    return GREEN_BOLD +
+      String.valueOf(percent) + "%" + RESET;
+  }
+
+  private static String batteryStatus(long status) {
+    return switch ((int) status) {
+      case BatteryManager.BATTERY_STATUS_UNKNOWN ->
+        "Unknown";
+
+      case BatteryManager.BATTERY_STATUS_CHARGING ->
+        "Charging";
+
+      case BatteryManager.BATTERY_STATUS_DISCHARGING ->
+        "Discharging";
+
+      case BatteryManager.BATTERY_STATUS_NOT_CHARGING ->
+        "Not charging";
+
+      case BatteryManager.BATTERY_STATUS_FULL ->
+        "Full";
+
+      default ->
+        "Invalid (" + status + ")";
+    };
+  }
+
+  private static String getBatteryInfo() {
+    try {
+      IActivityManager am =
+        IActivityManager.Stub.asInterface(
+          ServiceManager.getService("activity")
+      );
+
+      Method registerReceiver = null;
+
+      for (Method m : IActivityManager.class.getDeclaredMethods()) {
+        if (m.getName().equals("registerReceiver")) {
+          registerReceiver = m;
+          break;
+        }
+      }
+
+      if (registerReceiver == null) {
+        throw new NoSuchMethodException(
+          "registerReceiver not found"
+        );
+      }
+
+      IntentFilter filter =
+        new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+
+      Intent batteryIntent;
+
+      if (registerReceiver.getParameterCount() == 7) {
+        // Android 10
+        batteryIntent = (Intent) registerReceiver.invoke(
+            am,
+            null,        // IApplicationThread
+            null,        // calling package
+            null,        // IIntentReceiver
+            filter,
+            null,        // permission
+            0,           // userId
+            0            // flags
+        );
+      } else if (registerReceiver.getParameterCount() == 8) {
+        // Android 11+
+        batteryIntent = (Intent) registerReceiver.invoke(
+            am,
+            null,        // IApplicationThread
+            null,        // calling package
+            null,        // callingFeatureId
+            null,        // IIntentReceiver
+            filter,
+            null,        // permission
+            0,           // userId
+            0            // flags
+        );
+      } else {
+        throw new UnsupportedOperationException(
+          registerReceiver.toString()
+        );
+      }
+
+      if (batteryIntent != null) {
+        int level = batteryIntent.getIntExtra(
+          BatteryManager.EXTRA_LEVEL,
+          -1
+        );
+
+        int scale = batteryIntent.getIntExtra(
+          BatteryManager.EXTRA_SCALE,
+          100
+        );
+
+        int percent = level * 100 / scale;
+
+        int status = batteryIntent.getIntExtra(
+          BatteryManager.EXTRA_STATUS,
+          BatteryManager.BATTERY_STATUS_UNKNOWN
+        );
+
+        int temp = batteryIntent.getIntExtra(
+          BatteryManager.EXTRA_TEMPERATURE,
+          0
+        );
+
+        String technology = batteryIntent.getStringExtra(
+          BatteryManager.EXTRA_TECHNOLOGY
+        );
+
+        return String.format(
+          "%s [%s | %.1f°C | %s]",
+          batteryColor(percent),
+          batteryStatus(status),
+          temp / 10.0,
+          technology
+        );
+      }
+
+    } catch (Throwable e) {
+      logger.log(WARN, TAG,
+        "registerReceiver failed: " + e.getMessage()
+      );
+    }
+
+    // Fallback to termux-battery-status if registerReceiver failed
+    String exe = PREFIX + "/bin/termux-battery-status";
+
     if (new File(exe).exists()) {
       try {
-        Process p = Runtime.getRuntime().exec(
-          exe
-        );
+        Process p = Runtime.getRuntime().exec(exe);
 
         BufferedReader br = new BufferedReader(
           new InputStreamReader(p.getInputStream())
@@ -177,17 +363,18 @@ public class Main {
 
         JSONObject obj = new JSONObject(sb.toString());
 
+        int percent = obj.getInt("percentage");
+
         return String.format(
-          "%d%% (%s, %.1f°C)",
-          obj.getInt("percentage"),
-          obj.getString("status")
-          .toLowerCase(),
-          obj.getDouble("temperature")
+          "%s [%s | %.1f°C | %s]",
+          batteryColor(percent),
+          obj.getString("status").toLowerCase(),
+          obj.getDouble("temperature"),
+          obj.getString("technology")
         );
 
       } catch (Exception e) {
         e.printStackTrace();
-        return "Unknown";
       }
     }
 
@@ -351,17 +538,17 @@ public class Main {
       if (display != EGL14.EGL_NO_DISPLAY) {
 
         EGL14.eglMakeCurrent(
-            display,
-            EGL14.EGL_NO_SURFACE,
-            EGL14.EGL_NO_SURFACE,
-            EGL14.EGL_NO_CONTEXT
-            );
+          display,
+          EGL14.EGL_NO_SURFACE,
+          EGL14.EGL_NO_SURFACE,
+          EGL14.EGL_NO_CONTEXT
+        );
 
         if (surface != EGL14.EGL_NO_SURFACE) {
           EGL14.eglDestroySurface(
-              display,
-              surface
-              );
+            display,
+            surface
+          );
         }
 
         if (context != EGL14.EGL_NO_CONTEXT) {
@@ -547,29 +734,28 @@ public class Main {
     return sb.toString();
   }
 
-  private static long getTotalMem() {
-    try (BufferedReader br =
-        new BufferedReader(new FileReader("/proc/meminfo"))) {
+  private static String getStorageInfo() {
+    StatFs stat = new StatFs(
+        Environment.getDataDirectory().getPath()
+    );
 
-      String line;
-
-      while ((line = br.readLine()) != null) {
-
-        if (line.startsWith("MemTotal:")) {
-          String[] s = line.trim().split("\\s+");
-
-          // kB -+> bytes
-          return Long.parseLong(s[1]) * 1024;
-        }
-      }
-
-    } catch (Exception ignored) {
-    }
-
-    return 0;
+    long totalStorage = stat.getTotalBytes();
+    long freeStorage = stat.getAvailableBytes();
+    long usedStorage = totalStorage - freeStorage;
+    int storagePercent = (int) (usedStorage * 100 / totalStorage);
+    return String.format(
+          "%s / %s (%s)",
+          formatGiB(totalStorage - freeStorage),
+          formatGiB(totalStorage),
+          percentColor(storagePercent)
+        );
   }
 
-  private static long getAvailableMem() {
+  private static String getMemoryInfo() {
+
+    long freeMem = 0;
+    long totalMem = 0;
+
     try (BufferedReader br
         = new BufferedReader(new FileReader("/proc/meminfo"))) {
 
@@ -581,14 +767,69 @@ public class Main {
           String[] s = line.trim().split("\\s+");
 
           // kB -+> bytes
-          return Long.parseLong(s[1]) * 1024;
+          freeMem = Long.parseLong(s[1]) * 1024;
+        } else if (line.startsWith("MemTotal:")) {
+          String[] s = line.trim().split("\\s+");
+
+          // kB -+> bytes
+          totalMem = Long.parseLong(s[1]) * 1024;
         }
       }
 
-    } catch (Exception ignored) {
+    } catch (Exception e) {
+      e.printStackTrace();
+
+      return "Unknown";
     }
 
-    return 0;
+    long usedMem = totalMem - freeMem;
+    int memPercent = (int) (usedMem * 100 / totalMem);
+    return String.format(
+      "%s / %s (%s)",
+      formatGiB(usedMem),
+      formatGiB(totalMem),
+      percentColor(memPercent)
+    );
+  }
+
+  private static String getSwapInfo() {
+    long totalSwp = 0;
+    long freeSwp = 0;
+
+    try (BufferedReader br
+        = new BufferedReader(new FileReader("/proc/meminfo"))) {
+
+      String line;
+
+      while ((line = br.readLine()) != null) {
+        if (line.startsWith("SwapTotal:")) {
+          String[] s = line.trim().split("\\s+");
+          totalSwp = Long.parseLong(s[1]) * 1024;
+
+        } else if (line.startsWith("SwapFree:")) {
+          String[] s = line.trim().split("\\s+");
+          freeSwp = Long.parseLong(s[1]) * 1024;
+        }
+      }
+
+    } catch (Exception e) {
+      e.printStackTrace();
+      return "Unknown";
+    }
+
+    if (totalSwp == 0) {
+      return "Disabled";
+    }
+
+    long usedSwp = totalSwp - freeSwp;
+    int swpPercent = (int) (usedSwp * 100 / totalSwp);
+
+    return String.format(
+      "%s / %s (%s)",
+      formatGiB(usedSwp),
+      formatGiB(totalSwp),
+      percentColor(swpPercent)
+    );
   }
 
   private static String getDensityName(int dpi) {
@@ -611,9 +852,10 @@ public class Main {
 Usage: %s [OPTIONS]
 
 options:
-  --help    print this help message
-  --cfg     create a default config
-  --no-art  print info without the logo
+  --help        print this help message
+  --version     print afetch version
+  --cfg         create a default config
+  --no-logo     print info without the logo
 \n""", PROGRAM_NAME);
   }
 
@@ -635,37 +877,40 @@ options:
     );
   }
 
+  private static String percentColor(int percent) {
+    if (percent >= 80) {
+      return RED_BOLD +
+        String.valueOf(percent) + "%" + RESET;
+    }
+
+    if (percent >= 65) {
+      return YELLOW_BOLD +
+        String.valueOf(percent) + "%" + RESET;
+    }
+
+    return GREEN_BOLD +
+      String.valueOf(percent) + "%" + RESET;
+  }
+
   private static void printSystemInfo(Config afetchCfg)
       throws Exception {
     Context ctx = FakeContext.getSystemContext();
 
-    // Memory
-    long totalMem = getTotalMem();
-    long freeMem = getAvailableMem();
-    long usedMem = totalMem - freeMem;
-    int memPercent = (int) (usedMem * 100 / totalMem);
-
-    // Storage
-    StatFs stat = new StatFs(
-        Environment.getDataDirectory().getPath()
-    );
-
-    long totalStorage = stat.getTotalBytes();
-    long freeStorage = stat.getAvailableBytes();
-    long usedStorage = totalStorage - freeStorage;
-    int storagePercent = (int) (usedStorage * 100 / totalStorage);
+    if (afetchCfg.get(ConfigKey.LOGO)) {
+      printLogo();
+    }
 
     System.out.println(
       GREEN_BOLD + "╭───────────────────────────────╮" + RESET
     );
 
     row("OS",
-        String.format(
-          "%s (API %d)",
-          getAndroidCodename(),
-          Build.VERSION.SDK_INT
-          )
-       );
+      String.format(
+        "%s (API %d)",
+        getAndroidCodename(),
+        Build.VERSION.SDK_INT
+      )
+    );
 
     if (afetchCfg.get(ConfigKey.HOST)) {
       row("Host", getHost());
@@ -693,7 +938,6 @@ options:
     }
 
     if (afetchCfg.get(ConfigKey.DE)) {
-      // Fastfetch menyebutnya DE
       row("DE", Build.DISPLAY);
     }
 
@@ -718,27 +962,19 @@ options:
     }
 
     if (afetchCfg.get(ConfigKey.MEMORY)) {
-      row(
-          "Memory",
-          String.format(
-            "%s / %s (%d%%)",
-            formatGiB(usedMem),
-            formatGiB(totalMem),
-            memPercent
-          )
-      );
+      row("Memory", getMemoryInfo());
+    }
+
+    if (afetchCfg.get(ConfigKey.SWAP)) {
+      row("Swap", getSwapInfo());
     }
 
     if (afetchCfg.get(ConfigKey.STORAGE)) {
-      row(
-          "Storage",
-          String.format(
-            "%s / %s (%d%%)",
-            formatGiB(totalStorage - freeStorage),
-            formatGiB(totalStorage),
-            storagePercent
-        )
-      );
+      row("Storage", getStorageInfo());
+    }
+
+    if (afetchCfg.get(ConfigKey.LOCAL_IP)) {
+      row("Local IP", getLocalIP());
     }
 
     if (afetchCfg.get(ConfigKey.APK_COUNT)) {
@@ -762,7 +998,6 @@ options:
 
     try {
 
-      boolean withArt = true;
       Config afetchCfg = new Config();
 
       for (int i = 0; i < args.length; i++) {
@@ -772,14 +1007,14 @@ options:
         } else if (args[i].equals("--help")) {
           prinHelp();
           System.exit(0);
-        } else if (args[i].equals("--no-art")) {
-          withArt = false;
+        } else if (args[i].equals("--no-logo")) {
+          afetchCfg.set(ConfigKey.LOGO, false);
+        } else if (args[i].equals("--version")) {
+          System.out.println(VERSION);
+          System.exit(0);
         }
       }
 
-      if (withArt) {
-        printLogo();
-      }
       printSystemInfo(afetchCfg);
     } catch (Exception e) {
       e.printStackTrace();

@@ -1,5 +1,9 @@
 build/
 lib/
+src/java/android/app/IActivityManager.java
+src/java/android/app/IApplicationThread.java
+src/java/android/content/IIntentReceiver.java
+src/java/android/os/IBatteryPropertiesRegistrar.java
 *.jar
 *.apk
 *.dex

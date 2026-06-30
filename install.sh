@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 . ./config.sh
 
 print_help ()
@@ -36,12 +38,16 @@ set -e
 export PATH=/system/bin/
 export CLASSPATH="$prefix/share/afetch/$OUTPUT_APK"
 
-exec app_process -Xnoimage-dex2oat / "$class" "\$@" 2>/dev/null
+if [[ \$VERBOSE == true ]]; then
+  exec app_process -Xnoimage-dex2oat / "$class" "\$@"
+else
+  exec app_process -Xnoimage-dex2oat / "$class" "\$@" 2>/dev/null
+fi
 EOF
 )
 
   mkdir -pv "$prefix/bin"
-  echo "Creating executable script..."
+  echo "'afetch' -> '$prefix/bin/afetch'"
   echo "$script" > "$prefix/bin/afetch"
   chmod +x "$prefix/bin/afetch"
   mkdir -pv "$prefix/share/afetch"

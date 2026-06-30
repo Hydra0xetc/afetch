@@ -7,5 +7,10 @@ set -e
 export PATH=/system/bin/
 export CLASSPATH="$OUTPUT_APK"
 
-exec app_process -Xnoimage-dex2oat / \
+if [[ $VERBOSE == true ]]; then
+  exec app_process -Xnoimage-dex2oat / \
+    $(echo "$PACKAGE_NAME" | tr / .).Main "$@"
+else
+  exec app_process -Xnoimage-dex2oat / \
     $(echo "$PACKAGE_NAME" | tr / .).Main "$@" 2>/dev/null
+fi
