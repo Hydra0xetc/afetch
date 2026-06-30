@@ -47,7 +47,7 @@ EOF
 )
 
   mkdir -pv "$prefix/bin"
-  echo "Creating executable script..."
+  echo "'afetch' -> '$prefix/bin/afetch'"
   echo "$script" > "$prefix/bin/afetch"
   chmod +x "$prefix/bin/afetch"
   mkdir -pv "$prefix/share/afetch"
