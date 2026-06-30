@@ -2,6 +2,7 @@ package org.afetch;
 
 public enum ConfigKey {
   LOGO("logo"),
+  LOCAL_IP("localIP"),
   HOST("host"),
   DPI("dpi"),
   RESOLUTION("resolution"),
@@ -12,6 +13,7 @@ public enum ConfigKey {
   CPU("CPU"),
   GPU("GPU"),
   MEMORY("memory"),
+  SWAP("swap"),
   STORAGE("storage"),
   ABI("ABI"),
   BATTERY("battery"),

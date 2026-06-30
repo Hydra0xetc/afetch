@@ -73,13 +73,13 @@ WM=true
 CPU=true
 GPU=true
 memory=true
+swap=true
 storage=true
 ABI=true
 battery=true # Battery need termux-api
 apkCount=true
 packageCount=true
-# IPV4=false # TODO: Not implemented yet
-# IPV6=false # TODO: Not implemented yet
+localIP=true
 """;
 
     if (!exists()) {

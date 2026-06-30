@@ -26,6 +26,6 @@ public class Logger {
             case ERROR -> "[ERROR]";
         };
 
-        System.out.printf("%s [%s] %s\n", prefix, tag, msg);
+        System.err.printf("%s [%s] %s\n", prefix, tag, msg);
     }
 }

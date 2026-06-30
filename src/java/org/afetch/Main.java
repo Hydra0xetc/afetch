@@ -28,6 +28,11 @@ import android.os.Looper;
 import android.os.StatFs;
 import android.os.SystemClock;
 
+import java.net.NetworkInterface;
+import java.net.InetAddress;
+import java.net.Inet4Address;
+
+import java.util.Enumeration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.TreeMap;
@@ -83,6 +88,45 @@ public class Main {
   '-------------------------------'
   """ + WHITE_BOLD + """
   ******       ANDROID       ******""" + RESET);
+  }
+
+  private static String getLocalIP() {
+    try {
+      Enumeration<NetworkInterface> interfaces =
+        NetworkInterface.getNetworkInterfaces();
+
+      while (interfaces.hasMoreElements()) {
+        NetworkInterface iface = interfaces.nextElement();
+
+        if (!iface.isUp() || iface.isLoopback()) {
+          continue;
+        }
+
+        Enumeration<InetAddress> addresses =
+          iface.getInetAddresses();
+
+        while (addresses.hasMoreElements()) {
+          InetAddress addr = addresses.nextElement();
+
+          if (addr.isLoopbackAddress()) {
+            continue;
+          }
+
+          if (addr instanceof Inet4Address) {
+            return String.format(
+              "%s ("+GREEN_BOLD+"%s"+RESET+")",
+              addr.getHostAddress(),
+              iface.getName()
+            );
+          }
+        }
+      }
+
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
+    return "Unknown";
   }
 
   private static String getPackageInfo() {
@@ -690,29 +734,28 @@ public class Main {
     return sb.toString();
   }
 
-  private static long getTotalMem() {
-    try (BufferedReader br =
-        new BufferedReader(new FileReader("/proc/meminfo"))) {
+  private static String getStorageInfo() {
+    StatFs stat = new StatFs(
+        Environment.getDataDirectory().getPath()
+    );
 
-      String line;
-
-      while ((line = br.readLine()) != null) {
-
-        if (line.startsWith("MemTotal:")) {
-          String[] s = line.trim().split("\\s+");
-
-          // kB -+> bytes
-          return Long.parseLong(s[1]) * 1024;
-        }
-      }
-
-    } catch (Exception ignored) {
-    }
-
-    return 0;
+    long totalStorage = stat.getTotalBytes();
+    long freeStorage = stat.getAvailableBytes();
+    long usedStorage = totalStorage - freeStorage;
+    int storagePercent = (int) (usedStorage * 100 / totalStorage);
+    return String.format(
+          "%s / %s (%s)",
+          formatGiB(totalStorage - freeStorage),
+          formatGiB(totalStorage),
+          percentColor(storagePercent)
+        );
   }
 
-  private static long getAvailableMem() {
+  private static String getMemoryInfo() {
+
+    long freeMem = 0;
+    long totalMem = 0;
+
     try (BufferedReader br
         = new BufferedReader(new FileReader("/proc/meminfo"))) {
 
@@ -724,14 +767,69 @@ public class Main {
           String[] s = line.trim().split("\\s+");
 
           // kB -+> bytes
-          return Long.parseLong(s[1]) * 1024;
+          freeMem = Long.parseLong(s[1]) * 1024;
+        } else if (line.startsWith("MemTotal:")) {
+          String[] s = line.trim().split("\\s+");
+
+          // kB -+> bytes
+          totalMem = Long.parseLong(s[1]) * 1024;
         }
       }
 
-    } catch (Exception ignored) {
+    } catch (Exception e) {
+      e.printStackTrace();
+
+      return "Unknown";
     }
 
-    return 0;
+    long usedMem = totalMem - freeMem;
+    int memPercent = (int) (usedMem * 100 / totalMem);
+    return String.format(
+      "%s / %s (%s)",
+      formatGiB(usedMem),
+      formatGiB(totalMem),
+      percentColor(memPercent)
+    );
+  }
+
+  private static String getSwapInfo() {
+    long totalSwp = 0;
+    long freeSwp = 0;
+
+    try (BufferedReader br
+        = new BufferedReader(new FileReader("/proc/meminfo"))) {
+
+      String line;
+
+      while ((line = br.readLine()) != null) {
+        if (line.startsWith("SwapTotal:")) {
+          String[] s = line.trim().split("\\s+");
+          totalSwp = Long.parseLong(s[1]) * 1024;
+
+        } else if (line.startsWith("SwapFree:")) {
+          String[] s = line.trim().split("\\s+");
+          freeSwp = Long.parseLong(s[1]) * 1024;
+        }
+      }
+
+    } catch (Exception e) {
+      e.printStackTrace();
+      return "Unknown";
+    }
+
+    if (totalSwp == 0) {
+      return "Disabled";
+    }
+
+    long usedSwp = totalSwp - freeSwp;
+    int swpPercent = (int) (usedSwp * 100 / totalSwp);
+
+    return String.format(
+      "%s / %s (%s)",
+      formatGiB(usedSwp),
+      formatGiB(totalSwp),
+      percentColor(swpPercent)
+    );
   }
 
   private static String getDensityName(int dpi) {
@@ -754,10 +852,10 @@ public class Main {
 Usage: %s [OPTIONS]
 
 options:
-  --help    print this help message
-  --version print afetch version
-  --cfg     create a default config
-  --no-logo print info without the logo
+  --help        print this help message
+  --version     print afetch version
+  --cfg         create a default config
+  --no-logo     print info without the logo
 \n""", PROGRAM_NAME);
   }
 
@@ -797,22 +895,6 @@ options:
   private static void printSystemInfo(Config afetchCfg)
       throws Exception {
     Context ctx = FakeContext.getSystemContext();
-
-    // Memory
-    long totalMem = getTotalMem();
-    long freeMem = getAvailableMem();
-    long usedMem = totalMem - freeMem;
-    int memPercent = (int) (usedMem * 100 / totalMem);
-
-    // Storage
-    StatFs stat = new StatFs(
-        Environment.getDataDirectory().getPath()
-    );
-
-    long totalStorage = stat.getTotalBytes();
-    long freeStorage = stat.getAvailableBytes();
-    long usedStorage = totalStorage - freeStorage;
-    int storagePercent = (int) (usedStorage * 100 / totalStorage);
 
     if (afetchCfg.get(ConfigKey.LOGO)) {
       printLogo();
@@ -881,27 +963,19 @@ options:
     }
 
     if (afetchCfg.get(ConfigKey.MEMORY)) {
-      row(
-        "Memory",
-        String.format(
-          "%s / %s (%s)",
-          formatGiB(usedMem),
-          formatGiB(totalMem),
-          percentColor(memPercent)
-        )
-      );
+      row("Memory", getMemoryInfo());
+    }
+
+    if (afetchCfg.get(ConfigKey.SWAP)) {
+      row("Swap", getSwapInfo());
     }
 
     if (afetchCfg.get(ConfigKey.STORAGE)) {
-      row(
-        "Storage",
-        String.format(
-          "%s / %s (%s)",
-          formatGiB(totalStorage - freeStorage),
-          formatGiB(totalStorage),
-          percentColor(storagePercent)
-        )
-      );
+      row("Storage", getStorageInfo());
+    }
+
+    if (afetchCfg.get(ConfigKey.LOCAL_IP)) {
+      row("Local IP", getLocalIP());
     }
 
     if (afetchCfg.get(ConfigKey.APK_COUNT)) {
