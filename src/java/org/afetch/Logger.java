@@ -26,6 +26,13 @@ public class Logger {
             case ERROR -> "[ERROR]";
         };
 
-        System.err.printf("%s [%s] %s\n", prefix, tag, msg);
+        String fmt = String.format(
+          "%s [%s] %s\n", prefix, tag, msg
+        );
+        if (level != Level.INFO) {
+          System.err.printf(fmt);
+        } else {
+          System.out.printf(fmt);
+        }
     }
 }
