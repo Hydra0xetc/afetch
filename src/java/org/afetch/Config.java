@@ -14,6 +14,7 @@ import java.util.Scanner;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.afetch.Main.LogoStyle;
 import static org.afetch.Logger.Level.*;
 
 public class Config {
@@ -87,6 +88,7 @@ public class Config {
     modules.put(
       new JSONObject()
       .put("type", ConfigKey.LOGO.getKey())
+      .put("style", LogoStyle.LOGO_MEDIUM.getKey())
       // TODO: add support ascii art file
       .put("format", "{green}{logo}{reset}")
     );
@@ -224,10 +226,8 @@ public class Config {
   }
 
   private void handleCreateDefaultConfig() throws JSONException {
-      File cfgpath = new File(CFG_PATH);
       try {
-        cfgpath.mkdirs();
-
+        new File(CFG_DIR).mkdirs();
         try (FileWriter writer = new FileWriter(CFG_PATH)) {
           writer.write(getDefaultConfig().toString(2));
         }
@@ -243,9 +243,7 @@ public class Config {
   }
 
   public void createDefaultConfig() throws JSONException {
-    File cfgpath = new File(CFG_DIR);
-
-    if (cfgpath.exists()) {
+    if (new File(CFG_PATH).exists()) {
       Scanner scanner = new Scanner(System.in);
 
       System.out.print("Config already exists, replace? (y/N): ");

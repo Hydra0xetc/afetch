@@ -46,6 +46,7 @@ import java.io.InputStreamReader;
 
 import java.lang.reflect.Method;
 
+import org.json.JSONException;
 import org.json.JSONObject;
 import org.json.JSONArray;
 
@@ -62,32 +63,92 @@ import static org.afetch.Logger.Level.*;
  */
 
 public class Main {
-  private static final String TAG          = "Main";
-  private static final String PREFIX       = System.getenv("PREFIX");
-  private static final String PROGRAM_NAME = "afetch";
-  private static final String VERSION      = "1.1.3";
-  private static final String GREEN_BOLD   = "\u001B[1;32m";
-  private static final String YELLOW_BOLD  = "\u001B[1;33m";
-  private static final String RED_BOLD     = "\u001B[1;31m";
-  private static final String WHITE_BOLD   = "\u001B[1;37m";
-  private static final String RESET        = "\u001B[0m";
+  private static final String TAG            = "Main";
+  private static final String PREFIX         = System.getenv("PREFIX");
+  private static final String PROGRAM_NAME   = "afetch";
+  private static final String AFETCH_VERSION = "1.1.4";
+
+  // TODO: support more color
+  private static final String GREEN_BOLD     = "\u001B[1;32m";
+  private static final String YELLOW_BOLD    = "\u001B[1;33m";
+  private static final String RED_BOLD       = "\u001B[1;31m";
+  private static final String WHITE_BOLD     = "\u001B[1;37m";
+  private static final String RESET          = "\u001B[0m";
+
+  public enum LogoStyle {
+    LOGO_SMALL("small"),
+    LOGO_MEDIUM("medium"),
+    LOGO_BIG("big");
+
+    private String key;
+
+    LogoStyle(String key) {
+      this.key = key;
+    }
+
+    public String getKey() {
+      return key;
+    }
+
+    public static LogoStyle fromKey(String key) {
+      for (LogoStyle cfg : values()) {
+        if (cfg.getKey().equals(key)) {
+          return cfg;
+        }
+      }
+
+      throw new IllegalArgumentException(
+        "Unknown config key: " + key
+      );
+    }
+  };
 
   private static Logger logger = Logger.getInstance();
 
   // NOTE: I Think better if the logo have bigger eye LUL ;v
-  private static String getLogo() {
-      return """
-     ;,                       ,;
-      ';,.-----------------.,;'
-      ,'                     ',
-    ,'                         ',
-   /      O               O      \\
-  |                               |
-  |                               |
-  |                               |
-  |                               |
-  '-------------------------------'
-  ******       ANDROID       ******""";
+  private static String getLogo(LogoStyle type) {
+    switch (type) {
+      case LOGO_SMALL:
+        return """
+   ;,           ,;
+    ';,.-----.,;'
+   ,'           ',
+  /    O     O    \\
+ |                 |
+ '-----------------'
+  **** ANDROID ***** """;
+
+      case LOGO_MEDIUM:
+        return """
+     ;,                 ,;
+      ';,.-----------.,;'
+      ,'                ',
+    ,'                    ',
+   /      O          O      \\
+  |                          |
+  |                          |
+  '--------------------------'
+  ******     ANDROID       ****""";
+
+      case LOGO_BIG:
+        return """
+       ;,                       ,;
+        ';,.-----------------.,;'
+        ,'                     ',
+      ,'                         ',
+     /      O               O      \\
+    |                               |
+    |                               |
+    |                               |
+    '-------------------------------'
+    ******       ANDROID       ******""";
+
+      default:
+        // TODO: Unreachable
+        break;
+    }
+
+    return null;
   }
 
   private static String getLocalIP() {
@@ -919,7 +980,16 @@ options:
 
         switch (key) {
           case LOGO:
-            format = format.replace("{logo}", getLogo());
+            String style;
+            try {
+              style = obj.getString("style");
+            } catch (JSONException e) {
+              style = LogoStyle.LOGO_MEDIUM.getKey();
+            }
+
+            format = format.replace("{logo}",
+              getLogo(LogoStyle.fromKey(style))
+            );
             break;
 
           case HEADER:
@@ -1051,7 +1121,7 @@ options:
         } else if (args[i].equals("--no-logo")) {
           afetchCfg.set(ConfigKey.LOGO, false);
         } else if (args[i].equals("--version")) {
-          System.out.println(VERSION);
+          System.out.println(AFETCH_VERSION);
           System.exit(0);
         }
       }

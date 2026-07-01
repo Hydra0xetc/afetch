@@ -21,6 +21,7 @@ you can run `afetch --cfg` for generete a configure file in `~/.config/afetch/co
   "modules": [
     {
       "type": "logo",
+      "style": "medium",
       "format": "{green}{logo}{reset}"
     },
     {
