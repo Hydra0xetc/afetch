@@ -47,6 +47,7 @@ import java.io.InputStreamReader;
 import java.lang.reflect.Method;
 
 import org.json.JSONObject;
+import org.json.JSONArray;
 
 import static org.afetch.Logger.Level.*;
 
@@ -64,7 +65,7 @@ public class Main {
   private static final String TAG          = "Main";
   private static final String PREFIX       = System.getenv("PREFIX");
   private static final String PROGRAM_NAME = "afetch";
-  private static final String VERSION      = "1.0.2";
+  private static final String VERSION      = "1.1.2";
   private static final String GREEN_BOLD   = "\u001B[1;32m";
   private static final String YELLOW_BOLD  = "\u001B[1;33m";
   private static final String RED_BOLD     = "\u001B[1;31m";
@@ -892,102 +893,143 @@ options:
       String.valueOf(percent) + "%" + RESET;
   }
 
+  private static String formatColors(String s) {
+    return s
+      .replace("{green}", GREEN_BOLD)
+      .replace("{red}", RED_BOLD)
+      .replace("{yellow}", YELLOW_BOLD)
+      .replace("{white}", WHITE_BOLD)
+      .replace("{reset}", RESET);
+  }
+
   private static void printSystemInfo(Config afetchCfg)
       throws Exception {
-    Context ctx = FakeContext.getSystemContext();
+      Context ctx = FakeContext.getSystemContext();
+      JSONArray modules = afetchCfg.getModules();
 
-    if (afetchCfg.get(ConfigKey.LOGO)) {
-      printLogo();
-    }
+      for (int i = 0; i < modules.length(); i++) {
+        JSONObject obj = modules.getJSONObject(i);
 
-    System.out.println(
-      GREEN_BOLD + "╭───────────────────────────────╮" + RESET
-    );
+        ConfigKey key = ConfigKey.fromKey(obj.getString("type"));
 
-    row("OS",
-      String.format(
-        "%s (API %d)",
-        getAndroidCodename(),
-        Build.VERSION.SDK_INT
-      )
-    );
+        if (!afetchCfg.get(key)) {
+          continue;
+        }
 
-    if (afetchCfg.get(ConfigKey.HOST)) {
-      row("Host", getHost());
-    }
+        String format = obj.getString("format");
 
-    if (afetchCfg.get(ConfigKey.BRAND)) {
-      row("Brand", Build.BRAND);
-    }
+        switch (key) {
+          case LOGO:
+            printLogo();
+            continue;
 
-    if (afetchCfg.get(ConfigKey.RESOLUTION)) {
-      row("Resolution", getResolution(ctx));
-    }
+          case HEADER:
+              System.out.println(formatColors(format));
+              continue;
 
-    if (afetchCfg.get(ConfigKey.DPI)) {
-      row("Dpi", getDpiInfo(ctx));
-    }
+          case OS:
+            // NOTE: Maybe this thing better if be one format
+            format = format.replace("{os}", getAndroidCodename());
+            format = format.replace("{api}", String.valueOf(Build.VERSION.SDK_INT));
+            break;
 
-    if (afetchCfg.get(ConfigKey.KERNEL)) {
-      row("Kernel",
-          "Linux " + System.getProperty("os.version"));
-    }
+          case HOST:
+            format = format.replace("{host}", getHost());
+            break;
 
-    if (afetchCfg.get(ConfigKey.BATTERY)) {
-      row("Battery", getBatteryInfo());
-    }
+          case BRAND:
+            format = format.replace("{brand}", Build.BRAND);
+            break;
 
-    if (afetchCfg.get(ConfigKey.DE)) {
-      row("DE", Build.DISPLAY);
-    }
+          case RESOLUTION:
+            format = format.replace(
+              "{resolution}",
+              getResolution(ctx)
+            );
+            break;
 
-    if (afetchCfg.get(ConfigKey.WM)) {
-      row("WM", getWM());
-    }
+          case DPI:
+            format = format.replace("{dpi}", getDpiInfo(ctx));
+            break;
 
-    if (afetchCfg.get(ConfigKey.CPU)) {
-      row("CPU", getCpuInfo());
-    }
+          case KERNEL:
+            format = format.replace(
+              "{kernel}",
+              System.getProperty("os.version")
+            );
+            break;
 
-    if (afetchCfg.get(ConfigKey.GPU)) {
-      row("GPU", getGpuInfo());
-    }
+          case BATTERY:
+            format = format.replace(
+              "{battery}",
+              getBatteryInfo()
+            );
+            break;
 
-    if (afetchCfg.get(ConfigKey.ABI)) {
-      row("ABI", getSupportedAbi());
-    }
+          case DE:
+            format = format.replace("{de}", Build.DISPLAY);
+            break;
 
-    if (afetchCfg.get(ConfigKey.UPTIME)) {
-      row("Uptime", getUptime());
-    }
+          case WM:
+            format = format.replace("{wm}", getWM());
+            break;
 
-    if (afetchCfg.get(ConfigKey.MEMORY)) {
-      row("Memory", getMemoryInfo());
-    }
+          case CPU:
+            format = format.replace("{cpu}", getCpuInfo());
+            break;
 
-    if (afetchCfg.get(ConfigKey.SWAP)) {
-      row("Swap", getSwapInfo());
-    }
+          case GPU:
+            format = format.replace("{gpu}", getGpuInfo());
+            break;
 
-    if (afetchCfg.get(ConfigKey.STORAGE)) {
-      row("Storage", getStorageInfo());
-    }
+          case ABI:
+            format = format.replace("{abi}", getSupportedAbi());
+            break;
 
-    if (afetchCfg.get(ConfigKey.LOCAL_IP)) {
-      row("Local IP", getLocalIP());
-    }
+          case UPTIME:
+            format = format.replace("{uptime}", getUptime());
+            break;
 
-    if (afetchCfg.get(ConfigKey.APK_COUNT)) {
-      row("Apk", getApkCount(ctx));
-    }
+          case MEMORY:
+            format = format.replace("{memory}", getMemoryInfo());
+            break;
 
-    if (afetchCfg.get(ConfigKey.PACKAGE_COUNT)) {
-      row("Package", getPackageInfo());
-    }
+          case SWAP:
+            format = format.replace("{swap}", getSwapInfo());
+            break;
 
-    System.out.println(
-      GREEN_BOLD + "╰───────────────────────────────╯" + RESET
-    );
+          case STORAGE:
+            format = format.replace(
+              "{storage}",
+              getStorageInfo()
+            );
+            break;
+
+          case LOCAL_IP:
+            format = format.replace("{localIP}", getLocalIP());
+            break;
+
+          case APK_COUNT:
+            format = format.replace("{apkCount}", getApkCount(ctx));
+            break;
+
+          case PACKAGE_COUNT:
+            format = format.replace(
+              "{packageCount}",
+              getPackageInfo()
+            );
+            break;
+
+          case FOOTER:
+              System.out.println(formatColors(format));
+              continue;
+
+          default:
+            continue;
+        }
+
+        System.out.println(formatColors(format));
+      }
   }
 
   public static void main(String[] args) {
@@ -1002,7 +1044,7 @@ options:
 
       for (int i = 0; i < args.length; i++) {
         if (args[i].equals("--cfg")) {
-          afetchCfg.createDeafultConfig();
+          afetchCfg.createDefaultConfig();
           System.exit(0);
         } else if (args[i].equals("--help")) {
           prinHelp();
