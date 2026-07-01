@@ -75,8 +75,8 @@ public class Main {
   private static Logger logger = Logger.getInstance();
 
   // NOTE: I Think better if the logo have bigger eye LUL ;v
-  private static void printLogo() {
-      System.out.println(GREEN_BOLD + """
+  private static String getLogo() {
+      return """
      ;,                       ,;
       ';,.-----------------.,;'
       ,'                     ',
@@ -87,8 +87,7 @@ public class Main {
   |                               |
   |                               |
   '-------------------------------'
-  """ + WHITE_BOLD + """
-  ******       ANDROID       ******""" + RESET);
+  ******       ANDROID       ******""";
   }
 
   private static String getLocalIP() {
@@ -920,8 +919,8 @@ options:
 
         switch (key) {
           case LOGO:
-            printLogo();
-            continue;
+            format = format.replace("{logo}", getLogo());
+            break;
 
           case HEADER:
               System.out.println(formatColors(format));

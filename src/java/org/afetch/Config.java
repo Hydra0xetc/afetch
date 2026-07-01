@@ -10,6 +10,7 @@ import java.io.FileWriter;
 import java.io.File;
 import java.io.IOException;
 
+import java.util.Scanner;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -86,7 +87,8 @@ public class Config {
     modules.put(
       new JSONObject()
       .put("type", ConfigKey.LOGO.getKey())
-      .put("format", "{logo}")  // TODO: add support ascii art file
+      // TODO: add support ascii art file
+      .put("format", "{green}{logo}{reset}")
     );
 
     modules.put(
@@ -221,20 +223,42 @@ public class Config {
     return cfg;
   }
 
-  public void createDefaultConfig() throws JSONException {
-    try {
-      new File(CFG_DIR).mkdirs();
+  private void handleCreateDefaultConfig() throws JSONException {
+      File cfgpath = new File(CFG_PATH);
+      try {
+        cfgpath.mkdirs();
 
-      try (FileWriter writer = new FileWriter(CFG_PATH)) {
-        writer.write(getDefaultConfig().toString(2));
+        try (FileWriter writer = new FileWriter(CFG_PATH)) {
+          writer.write(getDefaultConfig().toString(2));
+        }
+
+        logger.log(
+          INFO, "afetch", "Creating new config at: " + CFG_PATH
+        );
+
+      } catch (IOException e) {
+        throw new RuntimeException(e);
       }
 
-      logger.log(
-        INFO, "afetch", "Creating new config at: " + CFG_PATH
-      );
+  }
 
-    } catch (IOException e) {
-      throw new RuntimeException(e);
+  public void createDefaultConfig() throws JSONException {
+    File cfgpath = new File(CFG_DIR);
+
+    if (cfgpath.exists()) {
+      Scanner scanner = new Scanner(System.in);
+
+      System.out.print("Config already exists, replace? (y/N): ");
+      String input = scanner.nextLine().trim().toLowerCase();
+
+      if (input.equals("Y") || input.equals("y")) {
+        handleCreateDefaultConfig();
+      } else {
+        System.out.println("Canceling...");
+        return;
+      }
+    } else {
+      handleCreateDefaultConfig();
     }
   }
 }
