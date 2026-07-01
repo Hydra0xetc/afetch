@@ -65,7 +65,7 @@ public class Main {
   private static final String TAG          = "Main";
   private static final String PREFIX       = System.getenv("PREFIX");
   private static final String PROGRAM_NAME = "afetch";
-  private static final String VERSION      = "1.1.2";
+  private static final String VERSION      = "1.1.3";
   private static final String GREEN_BOLD   = "\u001B[1;32m";
   private static final String YELLOW_BOLD  = "\u001B[1;33m";
   private static final String RED_BOLD     = "\u001B[1;31m";
