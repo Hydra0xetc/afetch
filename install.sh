@@ -23,6 +23,13 @@ EOF
 
 __handle_install ()
 {
+
+  if ! [[ -e $OUTPUT_APK ]]; then
+    echo "Error: output APK '$OUTPUT_APK' does not exist."
+    echo "Please build the project before running this script."
+    exit 1
+  fi
+
   if [[ -z "$1" ]]; then
     prefix=$INSTALL_DIR
   else
