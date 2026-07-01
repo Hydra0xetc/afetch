@@ -128,7 +128,7 @@ public class Main {
   |                          |
   |                          |
   '--------------------------'
-  ******     ANDROID       ****""";
+  ******     ANDROID      ****""";
 
       case LOGO_BIG:
         return """
@@ -259,7 +259,10 @@ public class Main {
         }
       }
 
-      return String.format("%d (%d system, %d user)", total, systemApps, userApps);
+      return String.format(
+        "%d (%d system, %d user)",
+        total, systemApps, userApps
+      );
 
     } catch (Exception e) {
       e.printStackTrace();
@@ -999,7 +1002,9 @@ options:
           case OS:
             // NOTE: Maybe this thing better if be one format
             format = format.replace("{os}", getAndroidCodename());
-            format = format.replace("{api}", String.valueOf(Build.VERSION.SDK_INT));
+            format = format.replace("{api}",
+              String.valueOf(Build.VERSION.SDK_INT)
+            );
             break;
 
           case HOST:
