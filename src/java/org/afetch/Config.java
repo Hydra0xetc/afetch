@@ -86,7 +86,7 @@ public class Config {
     modules.put(
       new JSONObject()
       .put("type", ConfigKey.LOGO.getKey())
-      .put("format", "{logo}")
+      .put("format", "{logo}")  // TODO: add support ascii art file
     );
 
     modules.put(
