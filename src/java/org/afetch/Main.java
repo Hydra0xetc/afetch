@@ -1129,8 +1129,13 @@ options:
             System.getenv("VERSION"),
             "Unknown"
           );
-          System.out.println(ver);
-          System.out.println(ver);
+
+          String type = java.util.Objects.requireNonNullElse(
+            System.getenv("BUILD_TYPE"),
+            "Unknown"
+          );
+          System.out.printf("%s-%s\n", ver, type);
+          System.exit(0);
 
         }
       }

@@ -47,6 +47,7 @@ resolve_deps ()
 
 process_aidl ()
 {
+  mkdir -p "$JAVA_BUILD_DIR"
   if [[ ! -f "$JAVA_BUILD_DIR/.aidl.stamp" ]] \
     || find "$JAVA_SRC_DIR" -name "*.aidl" -newer "$JAVA_BUILD_DIR/.aidl.stamp" | grep -q .; then
     echo "[*] Processing aidl"
@@ -149,17 +150,17 @@ export CLASSPATH=\$HERE/../share/$SCRIPT_NAME/$OUTPUT_APK
 
 : "\${ART_OPTS:=-Xmx10m -Xnoimage-dex2oat}"
 
-if ![ -f "\$CLASSPATH" ]; then
+if [ ! -f "\$CLASSPATH" ]; then
   echo "cannot found: \$CLASSPATH"
   exit 127
 fi
 
 if [ "\$VERBOSE" = "true" ]; then
-  exec app_process -Xnoimage-dex2oat / \
-    $(echo "$PACKAGE_NAME" | tr / .).Main "$@"
+  exec app_process \$ART_OPTS / \
+    $(echo "$PACKAGE_NAME" | tr / .).Main "\$@"
 else
-  exec app_process -Xnoimage-dex2oat / \
-    $(echo "$PACKAGE_NAME" | tr / .).Main "$@" 2>/dev/null
+  exec app_process \$ART_OPTS / \
+    $(echo "$PACKAGE_NAME" | tr / .).Main "\$@" 2>/dev/null
 fi
 
 EOF

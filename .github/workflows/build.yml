@@ -1,173 +1,102 @@
-name: Build Release
+name: Build Project
 
 on:
   push:
-    branches:
-      - master
-
-permissions:
-  contents: write
+    tags:
+      - "v*"
 
 jobs:
-  build-normal:
+  build:
+    name: Build (${{ matrix.arch }})
     runs-on: ubuntu-latest
 
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - arm64-v8a
+          - armeabi-v7a
+
+    permissions:
+      contents: write
+
+    env:
+      VERSION: ${{ github.ref_name }}
+      CMAKE_VERSION: 3.22.1
+      BUILD_TOOLS_VER: 35.0.0
+      ANDROID_API: 29
+      NDK_VERSION: 29.0.14206865
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
         with:
-          java-version: "17"
           distribution: temurin
+          java-version: "17"
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v3
 
-      - name: Configure Android Tools
+      - name: Install Android SDK components
         run: |
-          SDK_ROOT="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
+          SDKMANAGER="$(find "$ANDROID_SDK_ROOT/cmdline-tools" -type f -name sdkmanager | head -n1)"
 
-          D8_PATH=$(find "$SDK_ROOT/build-tools" -name d8 | sort -V | tail -n 1)
-          AIDL_PATH=$(find "$SDK_ROOT/build-tools" -name aidl | sort -V | tail -n 1)
+          if [ -z "$SDKMANAGER" ]; then
+            echo "sdkmanager not found"
+            exit 1
+          else
+            echo "found sdkmanager at: $SDKMANAGER"
+          fi
 
-          [ -n "$D8_PATH" ]   || { echo "d8 not found"; exit 1; }
-          [ -n "$AIDL_PATH" ] || { echo "aidl not found"; exit 1; }
+          yes | "$SDKMANAGER" \
+            "build-tools;${BUILD_TOOLS_VER}" \
+            "platforms;android-${ANDROID_API}" \
+            "cmake;${CMAKE_VERSION}" \
+            "ndk;${NDK_VERSION}"
 
-          sed -i "s|^D8=.*|D8=$D8_PATH|" config.sh
-          sed -i "s|^AIDL=.*|AIDL=$AIDL_PATH|" config.sh
-          sed -i "s|^MINIFIED=.*|MINIFIED=false|" config.sh
-
-      - name: Build non minify
+      - name: Configure build
         run: |
-          chmod +x build.sh install.sh
+          sed -i "s|^ANDROID_ABI=.*|ANDROID_ABI=${{ matrix.arch }}|" config.sh
+          sed -i "s|^ANDROID_API=.*|ANDROID_API=${ANDROID_API}|" config.sh
+          sed -i "s|^CMAKE_VERSION=.*|CMAKE_VERSION=${CMAKE_VERSION}|" config.sh
+          sed -i "s|^BUILD_TOOLS_VER=.*|BUILD_TOOLS_VER=${BUILD_TOOLS_VER}|" config.sh
+          sed -i "s|^ANDROID_NDK_PATH=.*|ANDROID_NDK_PATH=\$ANDROID_SDK_ROOT/ndk/${NDK_VERSION}|" config.sh
+
+          sed -i "s|^VERSION=.*|VERSION=${VERSION}|" config.sh
+
+      - name: Build debug
+        run: |
+          sed -i "s|^BUILD_TYPE=.*|BUILD_TYPE=debug|" config.sh
+          chmod +x build.sh
           ./build.sh
 
-      - name: Package non minify
+      - name: Package debug
         run: |
-          ARCHIVE=afetch.tar.gz
-          DIR_NAME="${ARCHIVE%.tar.gz}"
-          touch $ARCHIVE
+          PKG="afetch-${VERSION}-${{ matrix.arch }}-debug"
+          mkdir "$PKG"
+          cp -a build/afetch-${{ matrix.arch }}-debug/. "$PKG/"
+          tar -cvzf "${PKG}.tar.gz" "$PKG"
 
-          tar \
-            --exclude='./.git' \
-            --exclude='./.github' \
-            --exclude='./build' \
-            --exclude='./lib' \
-            --exclude='./r8' \
-            --exclude='./r8.jar' \
-            --transform "s,^\./,${DIR_NAME}/," \
-            -czvf "$ARCHIVE" .
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: afetch
-          path: afetch.tar.gz
-
-
-  build-minify:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-java@v4
-        with:
-          java-version: "17"
-          distribution: temurin
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
-
-      - name: Configure Android Tools
+      - name: Build release
         run: |
-          SDK_ROOT="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
-
-          D8_PATH=$(find "$SDK_ROOT/build-tools" -name d8 | sort -V | tail -n 1)
-          AIDL_PATH=$(find "$SDK_ROOT/build-tools" -name aidl | sort -V | tail -n 1)
-
-          [ -n "$D8_PATH" ]   || { echo "d8 not found"; exit 1; }
-          [ -n "$AIDL_PATH" ] || { echo "aidl not found"; exit 1; }
-
-          curl -L \
-            https://storage.googleapis.com/r8-releases/raw/8.4.46/r8lib.jar \
-            -o r8.jar
-
-          cat > r8 << 'EOF'
-          #!/usr/bin/env bash
-
-          HERE="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
-
-          exec java \
-            -cp "$HERE/r8.jar" \
-            com.android.tools.r8.R8 \
-            "$@"
-          EOF
-
-          chmod +x r8
-
-          sed -i "s|^D8=.*|D8=$D8_PATH|" config.sh
-          sed -i "s|^AIDL=.*|AIDL=$AIDL_PATH|" config.sh
-          sed -i "s|^MINIFIED=.*|MINIFIED=true|" config.sh
-          sed -i "s|^R8=.*|R8=$(pwd)/r8|" config.sh
-
-      - name: Build minify
-        run: |
-          chmod +x build.sh install.sh
+          sed -i "s|^BUILD_TYPE=.*|BUILD_TYPE=release|" config.sh
+          chmod +x build.sh
           ./build.sh
 
-      - name: Package minify
+      - name: Package release
         run: |
-          ARCHIVE=afetch-minify.tar.gz
-          DIR_NAME="${ARCHIVE%.tar.gz}"
+          PKG="afetch-${VERSION}-${{ matrix.arch }}-release"
+          mkdir "$PKG"
+          cp -a build/afetch-${{ matrix.arch }}-release/. "$PKG/"
+          tar -cvzf "${PKG}.tar.gz" "$PKG"
 
-          touch $ARCHIVE
-          tar \
-            --exclude='./.git' \
-            --exclude='./.github' \
-            --exclude='./build' \
-            --exclude='./lib' \
-            --exclude='./r8' \
-            --exclude='./r8.jar' \
-            --transform "s,^\./,${DIR_NAME}/," \
-            -czvf "$ARCHIVE" .
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: afetch-minify
-          path: afetch-minify.tar.gz
-
-
-  release:
-    needs:
-      - build-normal
-      - build-minify
-
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: afetch
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: afetch-minify
-
-      - name: Create Release
+      - name: Upload Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: release-1.0.2
-          name: Release 1.0.2
-          body: |
-            finally release 1.0.2
-
+          tag_name: ${{ github.ref_name }}
           files: |
-            afetch.tar.gz
-            afetch-minify.tar.gz
-
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            afetch-${{ github.ref_name }}-${{ matrix.arch }}-debug.tar.gz
+            afetch-${{ github.ref_name }}-${{ matrix.arch }}-release.tar.gz

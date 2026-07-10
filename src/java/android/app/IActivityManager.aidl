@@ -7,13 +7,13 @@ import android.content.IntentFilter;
 
 /** @hide */
 interface IActivityManager {
-    Intent registerReceiver(
-        in IApplicationThread caller,
-        String callerPackage,
-        in IIntentReceiver receiver,
-        in IntentFilter filter,
-        String requiredPermission,
-        int userId,
-        int flags
-    );
+  Intent registerReceiver(
+    in IApplicationThread caller,
+    String callerPackage,
+    in IIntentReceiver receiver,
+    in IntentFilter filter,
+    String requiredPermission,
+    int userId,
+    int flags
+  );
 }
