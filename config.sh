@@ -2,7 +2,7 @@
 
 DEBUG=false
 
-VERSION=v1.1.5
+VERSION=v1.1.6
 BUILD_TYPE=debug
 
 # android tools

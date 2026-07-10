@@ -520,10 +520,8 @@ public class Main {
       int[] configAttribs = {
         EGL14.EGL_RENDERABLE_TYPE,
         EGL14.EGL_OPENGL_ES2_BIT,
-
         EGL14.EGL_SURFACE_TYPE,
         EGL14.EGL_PBUFFER_BIT,
-
         EGL14.EGL_NONE
       };
 
@@ -655,14 +653,14 @@ public class Main {
 
           while ((line = br.readLine()) != null) {
 
-              if (line.startsWith("Hardware")) {
-                  String[] s = line.split(":", 2);
+            if (line.startsWith("Hardware")) {
+              String[] s = line.split(":", 2);
 
-                  if (s.length == 2) {
-                      hardware = s[1].trim();
-                      break;
-                  }
+              if (s.length == 2) {
+                hardware = s[1].trim();
+                break;
               }
+            }
           }
 
       } catch (Exception ignored) {

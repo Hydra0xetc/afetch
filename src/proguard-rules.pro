@@ -2,6 +2,9 @@
     public static void main(java.lang.String[]);
 }
 
--dontwarn android.app.IActivityManager
--dontwarn android.app.IActivityManager$Stub
--dontwarn android.os.ServiceManager
+# obfuscating stubClass cause RuntimeException
+# see: https://issuetracker.google.com/issues/131619590
+-keep class android.os.ServiceManager { *; }
+
+-keep class android.app.IActivityManager { *; }
+-keep class android.app.IActivityManager$Stub { *; }
