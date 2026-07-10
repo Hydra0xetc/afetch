@@ -66,7 +66,6 @@ public class Main {
   private static final String TAG            = "Main";
   private static final String PREFIX         = System.getenv("PREFIX");
   private static final String PROGRAM_NAME   = "afetch";
-  private static final String AFETCH_VERSION = "1.1.4";
 
   // TODO: support more color
   private static final String GREEN_BOLD     = "\u001B[1;32m";
@@ -1126,8 +1125,13 @@ options:
         } else if (args[i].equals("--no-logo")) {
           afetchCfg.set(ConfigKey.LOGO, false);
         } else if (args[i].equals("--version")) {
-          System.out.println(AFETCH_VERSION);
-          System.exit(0);
+          String ver = java.util.Objects.requireNonNullElse(
+            System.getenv("VERSION"),
+            "Unknown"
+          );
+          System.out.println(ver);
+          System.out.println(ver);
+
         }
       }
 

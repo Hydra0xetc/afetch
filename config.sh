@@ -1,18 +1,27 @@
 # Change this to your own configuration
 
 DEBUG=false
-MINIFIED=false
-ANDROID_API=29
-ANDROID_DIR=lib/android-$ANDROID_API
-ANDROID=$ANDROID_DIR/android.jar
 
-# i don't know why but if i use d8 or r8 from termux repo i keep getting a error
-# so i use d8 from my android-sdk
-D8=$HOME/opt/android-sdk/build-tools/35.0.0/d8
-AIDL=$HOME/opt/android-sdk/build-tools/35.0.0/aidl
+VERSION=v1.1.4
+BUILD_TYPE=debug
+
+# android tools
+BUILD_TOOLS_VER=35.0.0
+CMAKE_VERSION=4.3.4
+ANDROID_API=29
+# NOTE: for now lets just focused only two arch
+# arm64-v8a and armeabi-v7a
+ANDROID_ABI=arm64-v8a
+ANDROID_SDK_PATH=$ANDROID_SDK_ROOT
+ANDROID_NDK_PATH=$ANDROID_NDK_HOME
+
+# other
 RULES=src/proguard-rules.pro
-R8=$HOME/opt/r8/8.8.46/r8
-BUILD=build/
+JAVA_SRC_DIR=src/java
+CPP_SRC_DIR=src/cpp
+BUILD=build
+JAVA_BUILD_DIR=$BUILD/java
+CPP_BUILD_DIR=$BUILD/cpp/$ANDROID_ABI
 PACKAGE_NAME=org/afetch
 OUTPUT_APK=afetch.apk
-INSTALL_DIR=$PREFIX
+OUTPUT_NATIVE=
