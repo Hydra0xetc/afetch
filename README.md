@@ -112,8 +112,5 @@ you can run `afetch --cfg` for generete a configure file in `~/.config/afetch/co
 }
 ```
 
-> [!WARNING]
-> `--cfg` can overwrite your existing configuration so be careful.
-
 ## License
 [MIT](./LICENSE)
