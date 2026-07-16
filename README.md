@@ -8,6 +8,11 @@ a neofetch like tools but focused for Android (Termux)
 > [!WARNING]
 > This tool still under development
 
+## Installation
+```bash
+curl -fSsl https://raw.githubusercontent.com/Hydra0xetc/afetch/refs/heads/master/install.sh | bash
+```
+
 ## Build
 first of all you need d8 if you want to build without minify or r8
 if you want to build with minify and also you need a stable java compiler
