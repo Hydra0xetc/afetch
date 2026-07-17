@@ -50,7 +50,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 import org.json.JSONArray;
 
-import static org.afetch.Logger.Level.*;
+import static org.afetch.Config.ConfigKey;
 
 /*
  *   ;,           ,;
@@ -286,23 +286,12 @@ public class Main {
 
   private static String batteryStatus(long status) {
     return switch ((int) status) {
-      case BatteryManager.BATTERY_STATUS_UNKNOWN ->
-        "Unknown";
-
-      case BatteryManager.BATTERY_STATUS_CHARGING ->
-        "Charging";
-
-      case BatteryManager.BATTERY_STATUS_DISCHARGING ->
-        "Discharging";
-
-      case BatteryManager.BATTERY_STATUS_NOT_CHARGING ->
-        "Not charging";
-
-      case BatteryManager.BATTERY_STATUS_FULL ->
-        "Full";
-
-      default ->
-        "Invalid (" + status + ")";
+      case BatteryManager.BATTERY_STATUS_UNKNOWN -> "Unknown";
+      case BatteryManager.BATTERY_STATUS_CHARGING -> "Charging";
+      case BatteryManager.BATTERY_STATUS_DISCHARGING -> "Discharging";
+      case BatteryManager.BATTERY_STATUS_NOT_CHARGING -> "Not charging";
+      case BatteryManager.BATTERY_STATUS_FULL -> "Full";
+      default -> "Invalid (" + status + ")";
     };
   }
 
@@ -401,9 +390,7 @@ public class Main {
       }
 
     } catch (Throwable e) {
-      logger.log(WARN, TAG,
-        "registerReceiver failed: " + e.getMessage()
-      );
+      logger.w(TAG, "registerReceiver failed: " + e.getMessage());
     }
 
     // Fallback to termux-battery-status if registerReceiver failed
@@ -509,11 +496,7 @@ public class Main {
 
       int[] version = new int[2];
 
-      if (!EGL14.eglInitialize(
-            display,
-            version, 0,
-            version, 1)) {
-
+      if (!EGL14.eglInitialize(display, version, 0, version, 1)) {
         return "Unknown";
       }
 
@@ -562,12 +545,7 @@ public class Main {
         surfaceAttribs, 0
       );
 
-      if (!EGL14.eglMakeCurrent(
-            display,
-            surface,
-            surface,
-            context)) {
-
+      if (!EGL14.eglMakeCurrent(display, surface, surface, context)) {
         return "Unknown";
       }
 
@@ -606,17 +584,11 @@ public class Main {
         );
 
         if (surface != EGL14.EGL_NO_SURFACE) {
-          EGL14.eglDestroySurface(
-            display,
-            surface
-          );
+          EGL14.eglDestroySurface(display, surface);
         }
 
         if (context != EGL14.EGL_NO_CONTEXT) {
-          EGL14.eglDestroyContext(
-              display,
-              context
-          );
+          EGL14.eglDestroyContext(display, context);
         }
 
         EGL14.eglTerminate(display);
@@ -913,10 +885,11 @@ public class Main {
 Usage: %s [OPTIONS]
 
 options:
-  --help        print this help message
-  --version     print afetch version
-  --cfg         create a default config
-  --no-logo     print info without the logo
+  --help            print this help message
+  --version         print afetch version
+  --cfg             create a default config
+  --no-logo         print info without the logo
+  --config-path     path to your `config.json`
 \n""", PROGRAM_NAME);
   }
 
@@ -962,8 +935,7 @@ options:
       .replace("{reset}", RESET);
   }
 
-  private static void printSystemInfo(Config afetchCfg)
-      throws Exception {
+  private static void printSystemInfo(Config afetchCfg) throws Exception {
       Context ctx = FakeContext.getSystemContext();
       JSONArray modules = afetchCfg.getModules();
 
@@ -1135,7 +1107,17 @@ options:
           System.out.printf("%s-%s\n", ver, type);
           System.exit(0);
 
+        // TODO: since --config-path make a new object --no-logo have no effect
+        // if --no-logo goes first
+        } else if (args[i].equals("--config-path")) {
+          if (i + 1 >= args.length) {
+            System.out.println("ERROR: --config-path need a filepath");
+            System.exit(1);
+          } else {
+            afetchCfg = new Config(args[i + 1]);
+          }
         }
+
       }
 
       printSystemInfo(afetchCfg);

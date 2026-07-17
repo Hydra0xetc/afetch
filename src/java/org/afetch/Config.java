@@ -4,6 +4,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONException;
 
+import java.io.FileNotFoundException;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -15,30 +16,84 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.afetch.Main.LogoStyle;
-import static org.afetch.Logger.Level.*;
 
 public class Config {
+
+  public enum ConfigKey {
+    LOGO("logo"),
+    FOOTER("footer"),
+    HEADER("header"),
+    OS("os"),
+    LOCAL_IP("localIP"),
+    HOST("host"),
+    DPI("dpi"),
+    RESOLUTION("resolution"),
+    KERNEL("kernel"),
+    BRAND("brand"),
+    DE("de"),
+    WM("wm"),
+    CPU("cpu"),
+    GPU("gpu"),
+    MEMORY("memory"),
+    SWAP("swap"),
+    STORAGE("storage"),
+    ABI("abi"),
+    BATTERY("battery"),
+    APK_COUNT("apkCount"),
+    PACKAGE_COUNT("packageCount"),
+    UPTIME("uptime");
+
+    private final String key;
+
+    ConfigKey(String key) {
+      this.key = key;
+    }
+
+    public String getKey() {
+      return key;
+    }
+
+    public static ConfigKey fromKey(String key) {
+      for (ConfigKey cfg : values()) {
+        if (cfg.getKey().equals(key)) {
+          return cfg;
+        }
+      }
+
+      throw new IllegalArgumentException(
+        "Unknown config key: " + key
+      );
+    }
+  }
+
+  private static final String TAG = "Config";
   private static final String CFG_DIR = System.getenv("HOME") + "/.config/afetch";
   private static final String CFG_PATH = CFG_DIR + "/config.json";
   private final Map<String, Boolean> overrides = new HashMap<>();
   private JSONObject root;
   private Logger logger = Logger.getInstance();
 
+  public Config(String cfgPath) throws JSONException, FileNotFoundException {
+    if (new File(cfgPath).exists()) {
+      load(cfgPath);
+    } else {
+      logger.e(TAG, "Could not find: " + cfgPath);
+      throw new FileNotFoundException(cfgPath);
+    }
+  }
+
   public Config() throws JSONException {
     if (new File(CFG_PATH).exists()) {
-      load();
+      load(CFG_PATH);
     } else {
       root = getDefaultConfig();
     }
   }
 
-  private void load() {
+  private void load(String cfgPath) {
     try {
       StringBuilder sb = new StringBuilder();
-
-      try (BufferedReader reader = new BufferedReader(
-            new FileReader(CFG_PATH)
-            )) {
+      try (BufferedReader reader = new BufferedReader(new FileReader(cfgPath))) {
         String line;
 
         while ((line = reader.readLine()) != null) {
@@ -49,6 +104,7 @@ public class Config {
       root = new JSONObject(sb.toString());
 
     } catch (Exception e) {
+      logger.e(TAG, e.getMessage());
       throw new RuntimeException(e);
     }
   }
@@ -232,9 +288,7 @@ public class Config {
           writer.write(getDefaultConfig().toString(2));
         }
 
-        logger.log(
-          INFO, "afetch", "Creating new config at: " + CFG_PATH
-        );
+        logger.i("afetch", "Creating new config at: " + CFG_PATH);
 
       } catch (IOException e) {
         throw new RuntimeException(e);
